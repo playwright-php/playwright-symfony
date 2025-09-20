@@ -8,14 +8,14 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Tests\DependencyInjection;
+namespace Playwright\Symfony\Tests\DependencyInjection;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
-use PlaywrightPHP\Browser\BrowserContextInterface;
-use PlaywrightPHP\Symfony\DependencyInjection\Configuration;
-use PlaywrightPHP\Symfony\DependencyInjection\PlaywrightExtension;
+use Playwright\Browser\BrowserContextInterface;
+use Playwright\Symfony\DependencyInjection\Configuration;
+use Playwright\Symfony\DependencyInjection\PlaywrightExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 #[CoversClass(PlaywrightExtension::class)]

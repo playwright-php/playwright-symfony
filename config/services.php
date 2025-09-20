@@ -8,7 +8,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use PlaywrightPHP\Symfony\Command\DebugPlaywrightCommand;
+use Playwright\Symfony\Command\DebugPlaywrightCommand;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 return static function (ContainerConfigurator $container): void {

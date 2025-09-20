@@ -8,12 +8,12 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Tests\Http;
+namespace Playwright\Symfony\Tests\Http;
 
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use PlaywrightPHP\Symfony\Tests\Fixtures\MockRequest;
+use Playwright\Symfony\Tests\Fixtures\MockRequest;
 
 #[CoversNothing]
 class MockRequestTest extends TestCase

@@ -8,12 +8,12 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Tests;
+namespace Playwright\Symfony\Tests;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use PlaywrightPHP\Symfony\DependencyInjection\PlaywrightExtension;
-use PlaywrightPHP\Symfony\PlaywrightSymfonyBundle;
+use Playwright\Symfony\DependencyInjection\PlaywrightExtension;
+use Playwright\Symfony\PlaywrightSymfonyBundle;
 
 #[CoversClass(PlaywrightSymfonyBundle::class)]
 class PlaywrightBundleTest extends TestCase

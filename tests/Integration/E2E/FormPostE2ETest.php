@@ -8,11 +8,11 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Tests\Integration\E2E;
+namespace Playwright\Symfony\Tests\Integration\E2E;
 
-use PlaywrightPHP\Symfony\Test\Assert\PlaywrightTestAssertionsTrait;
-use PlaywrightPHP\Symfony\Test\PlaywrightTestCase;
-use PlaywrightPHP\Symfony\Tests\Fixtures\App\TestKernel;
+use Playwright\Symfony\Test\Assert\PlaywrightTestAssertionsTrait;
+use Playwright\Symfony\Test\PlaywrightTestCase;
+use Playwright\Symfony\Tests\Fixtures\App\TestKernel;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 final class FormPostE2ETest extends PlaywrightTestCase

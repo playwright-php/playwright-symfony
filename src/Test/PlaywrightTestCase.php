@@ -8,14 +8,14 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Test;
+namespace Playwright\Symfony\Test;
 
-use PlaywrightPHP\Page\PageInterface;
-use PlaywrightPHP\Symfony\Browser\PlaywrightBrowser;
-use PlaywrightPHP\Symfony\Client\PlaywrightClient;
-use PlaywrightPHP\Symfony\Client\RequestConverter;
-use PlaywrightPHP\Symfony\Client\ResponseConverter;
-use PlaywrightPHP\Symfony\Test\Assert\PlaywrightTestAssertionsTrait;
+use Playwright\Page\PageInterface;
+use Playwright\Symfony\Browser\PlaywrightBrowser;
+use Playwright\Symfony\Client\PlaywrightClient;
+use Playwright\Symfony\Client\RequestConverter;
+use Playwright\Symfony\Client\ResponseConverter;
+use Playwright\Symfony\Test\Assert\PlaywrightTestAssertionsTrait;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;

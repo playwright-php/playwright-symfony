@@ -8,11 +8,11 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Tests\App;
+namespace Playwright\Symfony\Tests\App;
 
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-use PlaywrightPHP\Symfony\Tests\Fixtures\App\TestKernel;
+use Playwright\Symfony\Tests\Fixtures\App\TestKernel;
 use Symfony\Component\HttpFoundation\Request;
 
 final class LocalInterceptionTest extends TestCase

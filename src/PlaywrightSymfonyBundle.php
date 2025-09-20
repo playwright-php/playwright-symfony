@@ -8,9 +8,9 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony;
+namespace Playwright\Symfony;
 
-use PlaywrightPHP\Symfony\DependencyInjection\PlaywrightExtension;
+use Playwright\Symfony\DependencyInjection\PlaywrightExtension;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 

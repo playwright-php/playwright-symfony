@@ -48,7 +48,7 @@ npx playwright install
 ### 1. Create Your Test Case
 
 ```php
-use PlaywrightPHP\Symfony\Test\PlaywrightTestCase;
+use Playwright\Symfony\Test\PlaywrightTestCase;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 class E2ETestCase extends PlaywrightTestCase
@@ -180,7 +180,7 @@ public function testCookieHandling(): void
 ```php
 return [
     // ... your bundles
-    PlaywrightPHP\Symfony\PlaywrightSymfonyBundle::class => ['test' => true],
+    Playwright\Symfony\PlaywrightSymfonyBundle::class => ['test' => true],
 ];
 ```
 
@@ -212,7 +212,7 @@ playwright:
 
 namespace App\Tests\E2E;
 
-use PlaywrightPHP\Symfony\Test\PlaywrightTestCase;
+use Playwright\Symfony\Test\PlaywrightTestCase;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 abstract class BaseE2ETest extends PlaywrightTestCase

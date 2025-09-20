@@ -8,7 +8,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Test\Assert;
+namespace Playwright\Symfony\Test\Assert;
 
 /**
  * @author Simon André <smn.andre@gmail.com>

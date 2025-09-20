@@ -8,12 +8,12 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\DependencyInjection;
+namespace Playwright\Symfony\DependencyInjection;
 
-use PlaywrightPHP\Browser\BrowserContextInterface;
-use PlaywrightPHP\Browser\BrowserType;
-use PlaywrightPHP\Configuration\PlaywrightConfig;
-use PlaywrightPHP\Playwright;
+use Playwright\Browser\BrowserContextInterface;
+use Playwright\Browser\BrowserType;
+use Playwright\Configuration\PlaywrightConfig;
+use Playwright\Playwright;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;

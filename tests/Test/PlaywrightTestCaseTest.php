@@ -8,14 +8,14 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Tests\Test;
+namespace Playwright\Symfony\Tests\Test;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use PlaywrightPHP\Network\Request;
-use PlaywrightPHP\Symfony\Test\PlaywrightTestCase;
-use PlaywrightPHP\Symfony\Tests\Fixtures\MockRequest;
-use PlaywrightPHP\Symfony\Tests\Fixtures\Tests\ConcretePlaywrightTestCase;
+use Playwright\Network\Request;
+use Playwright\Symfony\Test\PlaywrightTestCase;
+use Playwright\Symfony\Tests\Fixtures\MockRequest;
+use Playwright\Symfony\Tests\Fixtures\Tests\ConcretePlaywrightTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
 #[CoversClass(PlaywrightTestCase::class)]

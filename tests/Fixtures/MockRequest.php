@@ -8,9 +8,9 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Tests\Fixtures;
+namespace Playwright\Symfony\Tests\Fixtures;
 
-use PlaywrightPHP\Network\RequestInterface;
+use Playwright\Network\RequestInterface;
 
 /**
  * Mock implementation of RequestInterface for testing purposes.

@@ -33,12 +33,12 @@
     },
     "autoload": {
         "psr-4": {
-            "PlaywrightPHP\\Symfony\\": "src/"
+            "Playwright\\Symfony\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "PlaywrightPHP\\Symfony\\Tests\\": "tests/"
+            "Playwright\\Symfony\\Tests\\": "tests/"
         }
     },
     "extra": {

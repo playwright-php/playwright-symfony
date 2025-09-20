@@ -8,9 +8,9 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace PlaywrightPHP\Symfony\Tests\Fixtures\App;
+namespace Playwright\Symfony\Tests\Fixtures\App;
 
-use PlaywrightPHP\Symfony\PlaywrightSymfonyBundle;
+use Playwright\Symfony\PlaywrightSymfonyBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
