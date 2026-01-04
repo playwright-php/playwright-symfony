@@ -681,3 +681,14 @@ Verify that Twig templates render correctly in the same process with full Symfon
   - Uses AssetMapper for assets, but builds HTML in PHP
 
 - [⏳] Checking if demo.html.twig is used anywhere...
+- [✅] Found Twig template: demo.html.twig
+  - Has variables: {{ title }}, {{ message }}
+  - Has asset() function call
+  - Template exists but NOT currently used by any controller
+
+- [⚠️] No controllers currently use Twig templates!
+  - Need to either:
+    1. Add Twig usage to existing controller, OR
+    2. Create new test to verify Twig works
+
+- [⏳] Checking if Twig bundle is configured in TestKernel...
