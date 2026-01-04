@@ -286,16 +286,62 @@
 
 ---
 
-## 🚀 Phase 6: Post-Release (Optional)
+## 🚀 Phase 6: Future Roadmap (Post v0.1.0)
+
+### From Original ROADMAP.md - Long-term Improvements
+
+#### Audit Follow-ups
+- [ ] **Multipart parsing:** Add fuzz/regression coverage (binary uploads, nested boundaries, malformed filenames) around the new `HeaderUtils`-driven parser
+- [ ] **Dependency stability:** Keep `playwright-php/playwright` pinned to released tags; add CI guardrails that fail when `composer.lock` drifts back to `dev-main`
+- [ ] **Client semantics:** Document clearly that `PlaywrightClient` cannot be used via `AbstractBrowser::request()` and provide guidance for users expecting BrowserKit flows
+- [ ] **Profiler + base URL:** Ensure the profiler token lookup continues to work after future kernel changes and keep the `PLAYWRIGHT_BASE_URL` parameter documented
+- [ ] **Redirect limitation:** Track the known limitation where real-browser redirects can bypass interception (leading to `ERR_CONNECTION_REFUSED`) and explore mitigation
+
+#### Assets Enhancement
+- [ ] **Structured debug logs:** Emit logs for asset hits/misses (hooked into `playwright.debug_logging`) so users can trace why a request fell back to the kernel
+- [ ] **Service-tag hook:** Document and implement a service-tag hook so custom `AssetLocatorInterface` implementations can be registered from applications
+
+#### BrowserKit Bridge Enhancement
+- [ ] **Network tracker:** Add a lightweight network tracker so BrowserKit responses capture status/headers from the last main-frame request
+- [ ] **PHPUnit trait:** Publish a reusable PHPUnit trait/base test case that spins up the BrowserKit bridge with fixtures and artifact capture (HTML/screenshot on failure)
+- [ ] **Demo suite:** Build a demo suite exercising navigation, clicks, multipart submits, cookies, auth headers, and popup flows
+- [ ] **Package extraction:** Re-evaluate whether to extract the bridge into a separate package
+
+#### Test Suite Enhancement
+- [ ] **Fixture subclass:** Build/extend the fixture subclass (`tests/Fixtures/Tests/TestablePlaywrightTestCase`) for better testing without real browsers
+- [ ] **Environment tests:** Add tests covering all environment variables (`PLAYWRIGHT_E2E`, `PLAYWRIGHT_HEADLESS`, `PLAYWRIGHT_BROWSER`, `PLAYWRIGHT_VERBOSE`)
+- [ ] **Helper coverage:** Use fake browser/client implementations to verify all helpers (`visit`, `setCookie`, `authenticate`, `logout`, etc.)
+- [ ] **Teardown coverage:** Prove fake browsers receive `stop()` and that `restoreExceptionHandlers()` fully unwinds stacked handlers
+
+#### DX: Assertion Helper Expansion
+- [ ] **MVP (v0.9.x):** Ship text + selector assertions (`assertPageHasText`, `assertSelectorTextContains`, `assertSelectorVisible`)
+- [ ] **Phase 2:** Add accessibility helpers (`assertRoleVisible`, `assertAriaState`) and document extension hooks
+- [ ] **Phase 3:** Explore network/download assertions once Playwright telemetry APIs stabilize
+- [ ] **Success metrics:** ≥40% reduction in boilerplate, 100% coverage for helper paths, zero BC-break reports
+
+#### DX: Logging & Fixtures
+- [ ] **Structured logging:** Use `logger.channel.playwright` to emit info/debug events (browser lifecycle, intercepted requests, asset cache hits/misses)
+- [ ] **Verbosity controls:** Keep `playwright.debug_logging` + `PLAYWRIGHT_VERBOSE` precedence documented (env > config > default)
+- [ ] **Fixture utilities:** Deliver a `FixtureLifecycleTrait` (plus Doctrine example) that wires `seedFixtures()` / `resetState()`
+- [ ] **Docs & samples:** Update README tips, add `docs/logging.md` and fixture guide
+
+#### Legacy Asset Bridge
+- [ ] **Decision:** Decide whether the KernelBrowser-based `AssetMapperPlaywrightBridge` is still needed now that AssetServer exists
+- [ ] **Action:** Either harden it (tests + docs) or deprecate it formally in favor of AssetServer
+
+---
+
+## 🚀 Phase 7: Post-Release Monitoring
 
 ### 6.1 Monitoring
 - [ ] **Track issues** - Watch GitHub issues for bugs
 - [ ] **Gather feedback** - Collect user feedback from early adopters
 - [ ] **Performance baseline** - Measure test execution time vs traditional E2E approaches
 
-### 6.2 Future Enhancements (Roadmap)
+### 6.2 Future Enhancements (v0.2+ Planning)
+- [ ] PHPStan level 8 compliance (fix 127 type hint errors)
 - [ ] Assertion helper expansion (accessibility, network assertions)
-- [ ] Fixture lifecycle traits (FixtureLifecycleTrait mentioned in ROADMAP)
+- [ ] Fixture lifecycle traits (FixtureLifecycleTrait mentioned above)
 - [ ] Structured logging with context (logger.channel.playwright)
 - [ ] BrowserKit bridge hardening (if separate package extraction planned)
 
