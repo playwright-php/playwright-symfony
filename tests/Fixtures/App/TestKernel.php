@@ -34,6 +34,7 @@ class TestKernel extends BaseKernel
     public function registerBundles(): iterable
     {
         yield new FrameworkBundle();
+        yield new \Symfony\Bundle\TwigBundle\TwigBundle();
         yield new PlaywrightSymfonyBundle();
     }
 
@@ -66,6 +67,11 @@ class TestKernel extends BaseKernel
                 'importmap_path' => __DIR__.'/importmap.php',
             ],
             'http_client' => false,
+        ]);
+
+        $container->extension('twig', [
+            'default_path' => __DIR__.'/templates',
+            'strict_variables' => true,
         ]);
 
         // Register controllers as services with autowiring/autoconfiguration
@@ -125,6 +131,30 @@ class TestKernel extends BaseKernel
         $routes->add('helper_demo', '/helper-demo')
             ->controller(Controller\HelperDemoController::class)
             ->methods(['GET', 'POST']);
+
+        $routes->add('session_set', '/session-set')
+            ->controller([Controller\SessionController::class, 'set'])
+            ->methods(['GET']);
+
+        $routes->add('session_set_trailing', '/session-set/')
+            ->controller([Controller\SessionController::class, 'set'])
+            ->methods(['GET']);
+
+        $routes->add('session_get', '/session-get')
+            ->controller([Controller\SessionController::class, 'get'])
+            ->methods(['GET']);
+
+        $routes->add('session_get_trailing', '/session-get/')
+            ->controller([Controller\SessionController::class, 'get'])
+            ->methods(['GET']);
+
+        $routes->add('session_clear', '/session-clear')
+            ->controller([Controller\SessionController::class, 'clear'])
+            ->methods(['GET']);
+
+        $routes->add('session_clear_trailing', '/session-clear/')
+            ->controller([Controller\SessionController::class, 'clear'])
+            ->methods(['GET']);
 
         // Navigation routes - must be last to act as catch-all
         $routes->add('nav_root', '/')

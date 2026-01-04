@@ -702,3 +702,7 @@ Verify that Twig templates render correctly in the same process with full Symfon
   - Create E2E test to verify Twig rendering
 
 - [⏳] Adding TwigBundle to TestKernel...
+- [✅] Added TwigBundle to TestKernel
+- [✅] Configured Twig with templates path
+  
+- [⏳] Creating controller that uses Twig template...
