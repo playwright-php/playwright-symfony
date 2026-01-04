@@ -583,3 +583,20 @@ Main functionality (request, click, submit, cookies) is tested and passing.
 Additional E2E examples could be added but not required for v0.1.
 
 **Marking section 3.4 as complete.**
+
+---
+
+## 🔄 Current Work: Section 2.1 - Same-Thread Request Handling (Started 2026-01-04 16:09)
+
+### Goal
+Validate that in-process kernel routing works correctly - browser requests → Symfony kernel → browser responses.
+
+### Tasks
+- [ ] Verify PlaywrightClient converts browser requests to Symfony Request
+- [ ] Verify ResponseConverter transforms Symfony Response back
+- [ ] Test with multiple request types (GET, POST, redirects)
+- [ ] Test request hooks (beforeRequest, afterResponse)
+- [ ] Validate TestKernel configuration
+- [ ] Check routes load properly
+
+### Progress
