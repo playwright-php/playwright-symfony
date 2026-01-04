@@ -609,3 +609,8 @@ Validate that in-process kernel routing works correctly - browser requests → S
   - ✅ Multiple E2E tests covering GET, POST, forms, navigation
 
 - [⏳] Running RequestConverterTest to verify conversion logic...
+- [✅] RequestConverterTest: **PASSING** (15 tests, 52 assertions)
+- [✅] ResponseConverterTest: **PASSING** (17 tests, 66 assertions)
+- [⚠️] PlaywrightClientTest: 7/8 passing (1 cookie test failure - known issue)
+
+- [⏳] Running E2E tests to verify end-to-end flow...
