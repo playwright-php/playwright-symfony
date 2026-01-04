@@ -117,7 +117,7 @@ final class PlaywrightClient extends AbstractBrowser
      */
     public function click(Link $link, array $serverParameters = []): Crawler
     {
-        $xpath = XPath::fromDomElement($link->getNode());
+        $xpath = self::buildXPath($link->getNode());
         $locator = $this->page->locator('xpath='.$xpath);
         $this->handlePotentialPopup(static function () use ($locator): void {
             $locator->click();
@@ -139,7 +139,7 @@ final class PlaywrightClient extends AbstractBrowser
         $this->fillForm($form);
 
         $this->handlePotentialPopup(function () use ($form): void {
-            $xpath = XPath::fromDomElement($form->getNode());
+            $xpath = self::buildXPath($form->getNode());
             $this->page->locator('xpath='.$xpath)->evaluate('el => el.requestSubmit ? el.requestSubmit() : el.submit()');
         });
 
@@ -309,7 +309,7 @@ JS,
         foreach ($form->all() as $field) {
             $node = $this->getNodeFromField($field);
 
-            $xpath = XPath::fromDomElement($node);
+            $xpath = self::buildXPath($node);
             $locator = $this->page->locator('xpath='.$xpath);
             $type = strtolower($node->getAttribute('type'));
 
@@ -354,5 +354,27 @@ JS,
         \assert($node instanceof \DOMElement);
 
         return $node;
+    }
+
+    /**
+     * Build a robust absolute XPath for a DOMElement from DomCrawler snapshot.
+     * This mirrors typical DOM to XPath strategies (tag + position among siblings).
+     */
+    private static function buildXPath(\DOMElement $node): string
+    {
+        $segments = [];
+        for ($current = $node; null !== $current && \XML_ELEMENT_NODE === $current->nodeType; $current = $current->parentNode) {
+            $index = 1;
+            for ($sibling = $current->previousSibling; null !== $sibling; $sibling = $sibling->previousSibling) {
+                if (\XML_ELEMENT_NODE === $sibling->nodeType && $sibling->nodeName === $current->nodeName) {
+                    ++$index;
+                }
+            }
+            $segments[] = sprintf('%s[%d]', $current->nodeName, $index);
+        }
+
+        $segments = array_reverse($segments);
+
+        return '//'.implode('/', $segments);
     }
 }
