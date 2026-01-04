@@ -14,11 +14,13 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Tests\Browser;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Symfony\Browser\PlaywrightBrowser;
 use Playwright\Symfony\Tests\Fixtures\Browser\DummyBrowserContext;
 use Playwright\Symfony\Tests\Fixtures\Browser\DummyPage;
 
+#[CoversClass(PlaywrightBrowser::class)]
 class PlaywrightBrowserBehaviorTest extends TestCase
 {
     public function testGetPageReturnsExistingPageWithoutStarting(): void
@@ -29,11 +31,10 @@ class PlaywrightBrowserBehaviorTest extends TestCase
         $browser = new PlaywrightBrowser('chromium', true);
 
         $refContext = new \ReflectionProperty(PlaywrightBrowser::class, 'context');
-        $refContext->setAccessible(true);
+
         $refContext->setValue($browser, $context);
 
         $refPage = new \ReflectionProperty(PlaywrightBrowser::class, 'page');
-        $refPage->setAccessible(true);
         $refPage->setValue($browser, $page);
 
         $result = $browser->getPage();
@@ -49,11 +50,10 @@ class PlaywrightBrowserBehaviorTest extends TestCase
         $browser = new PlaywrightBrowser('chromium', true);
 
         $refContext = new \ReflectionProperty(PlaywrightBrowser::class, 'context');
-        $refContext->setAccessible(true);
+
         $refContext->setValue($browser, $context);
 
         $refPage = new \ReflectionProperty(PlaywrightBrowser::class, 'page');
-        $refPage->setAccessible(true);
         $refPage->setValue($browser, $page);
 
         $handler = static function (): void {
@@ -74,11 +74,9 @@ class PlaywrightBrowserBehaviorTest extends TestCase
         $browser = new PlaywrightBrowser('chromium', true);
 
         $refContext = new \ReflectionProperty(PlaywrightBrowser::class, 'context');
-        $refContext->setAccessible(true);
         $refContext->setValue($browser, $context);
 
         $refPage = new \ReflectionProperty(PlaywrightBrowser::class, 'page');
-        $refPage->setAccessible(true);
         $refPage->setValue($browser, $page);
 
         $browser->stop();

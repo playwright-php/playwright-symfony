@@ -16,12 +16,10 @@ namespace Playwright\Symfony\Tests\BrowserKit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Playwright\Symfony\BrowserKit\PlaywrightClient as BrowserKitClient;
-use Playwright\Symfony\BrowserKit\ResponseMapper;
+use Playwright\Symfony\BrowserKit\PlaywrightClient;
 use Playwright\Symfony\Tests\Client\Fixtures\FakeBrowserContext;
 
-#[CoversClass(BrowserKitClient::class)]
-#[CoversClass(ResponseMapper::class)]
+#[CoversClass(PlaywrightClient::class)]
 final class PlaywrightClientTest extends TestCase
 {
     public function testFactorySeedsCookieJarAndNavigates(): void
@@ -31,7 +29,7 @@ final class PlaywrightClientTest extends TestCase
             ['name' => 'auth', 'value' => '1', 'domain' => 'example.test', 'path' => '/'],
         ]);
 
-        $client = BrowserKitClient::fromContext($context);
+        $client = PlaywrightClient::fromContext($context);
         $client->request('GET', 'http://example.test/foo');
 
         $page = $client->getPage();

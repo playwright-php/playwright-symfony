@@ -14,9 +14,11 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Tests\Browser;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Symfony\Browser\PlaywrightBrowser;
 
+#[CoversClass(PlaywrightBrowser::class)]
 class PlaywrightBrowserTest extends TestCase
 {
     public function testFromEnvironmentDefaultsToChromiumOnInvalidBrowser(): void
