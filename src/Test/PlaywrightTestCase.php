@@ -344,7 +344,7 @@ abstract class PlaywrightTestCase extends KernelTestCase
             // Filter to ensure all values are strings
             $stringHosts = array_filter($hosts, 'is_string');
             if (!empty($stringHosts)) {
-                /** @var string[] $stringHosts */
+                /* @var string[] $stringHosts */
                 return array_values($stringHosts);
             }
         }
