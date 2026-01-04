@@ -692,3 +692,13 @@ Verify that Twig templates render correctly in the same process with full Symfon
     2. Create new test to verify Twig works
 
 - [⏳] Checking if Twig bundle is configured in TestKernel...
+- [❌] TwigBundle NOT registered in TestKernel!
+  - Only FrameworkBundle and PlaywrightSymfonyBundle registered
+  - This explains why no controllers use Twig
+
+- [✅] Decision: Need to add TwigBundle and create test
+  - Add TwigBundle to TestKernel
+  - Create controller that uses the existing demo.html.twig
+  - Create E2E test to verify Twig rendering
+
+- [⏳] Adding TwigBundle to TestKernel...
