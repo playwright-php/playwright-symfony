@@ -617,3 +617,8 @@ Validate that in-process kernel routing works correctly - browser requests → S
 - [✅] HelloE2ETest (GET): **PASSING** (1 test, 1 assertion)
   - Validates: Browser → Playwright → Symfony kernel → Response → Browser
   - Confirms in-process routing works
+- [✅] EchoPostE2ETest (POST): **PASSING** (1 test, 5 assertions)
+  - Validates: POST body, JSON, headers conversion
+  - Confirms RequestConverter handles POST data correctly
+
+- [⏳] Testing redirect handling...
