@@ -622,3 +622,8 @@ Validate that in-process kernel routing works correctly - browser requests → S
   - Confirms RequestConverter handles POST data correctly
 
 - [⏳] Testing redirect handling...
+- [✅] NavigationControllerTest: **PASSING** (2 tests, 9 assertions)
+  - Tests redirect responses
+  - Confirms ResponseConverter handles redirects
+
+- [⏳] Checking request hooks (beforeRequest, afterResponse)...
