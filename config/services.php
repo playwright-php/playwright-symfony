@@ -39,6 +39,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$assetMapper', service('asset_mapper')->nullOnInvalid());
 
     $services->set(AssetServer::class)
+        ->public()  // Make public so tests can retrieve it
         ->args([
             [
                 service(AssetMapperProxy::class),
@@ -48,10 +49,5 @@ return static function (ContainerConfigurator $container): void {
             param('playwright.asset_dev_no_cache'),
         ]);
 
-    $services->set(DebugPlaywrightCommand::class)
-        ->arg('$interceptedHosts', param('playwright.intercepted_hosts'))
-        ->arg('$debug', param('playwright.debug'))
-        ->arg('$playwrightPath', param('playwright.playwright_path'))
-        ->arg('$nodePath', param('playwright.node_path'))
-        ->arg('$baseUrl', param('playwright.base_url'));
+    $services->set(DebugPlaywrightCommand::class);
 };

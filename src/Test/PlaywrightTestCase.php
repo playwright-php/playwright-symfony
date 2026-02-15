@@ -49,7 +49,7 @@ abstract class PlaywrightTestCase extends KernelTestCase
         $this->playwrightLogger = new NullLogger();
         $this->debugLogging = false;
 
-        if ('1' !== getenv('PLAYWRIGHT_E2E')) {
+        if ('1' !== ($_ENV['PLAYWRIGHT_E2E'] ?? $_SERVER['PLAYWRIGHT_E2E'] ?? getenv('PLAYWRIGHT_E2E'))) {
             $this->markTestSkipped('Playwright E2E tests are disabled. Set PLAYWRIGHT_E2E=1 to enable.');
         }
 
@@ -308,7 +308,8 @@ abstract class PlaywrightTestCase extends KernelTestCase
 
     private function resolveDebugLogging(): bool
     {
-        $env = getenv('PLAYWRIGHT_VERBOSE');
+        /** @var string|bool|null $env */
+        $env = $_ENV['PLAYWRIGHT_VERBOSE'] ?? $_SERVER['PLAYWRIGHT_VERBOSE'] ?? getenv('PLAYWRIGHT_VERBOSE');
         if (false !== $env && '' !== $env) {
             return !in_array(strtolower((string) $env), ['0', 'false', 'off'], true);
         }

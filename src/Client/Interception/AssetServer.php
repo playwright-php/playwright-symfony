@@ -86,7 +86,7 @@ final class AssetServer
             return null;
         }
 
-        $asset = $this->locate($path);
+        $asset = $this->locate(rtrim($path, '/'));
         if (null === $asset) {
             return null;
         }
