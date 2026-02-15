@@ -65,27 +65,21 @@ trait PlaywrightTestAssertionsTrait
     {
         $response = $this->getLastResponse();
         $this->assertNotNull($response, 'No response available');
-        if (null !== $response) {
-            $this->assertSame($expectedCode, $response->getStatusCode(), sprintf('Expected status code %d, got %d', $expectedCode, $response->getStatusCode()));
-        }
+        $this->assertSame($expectedCode, $response->getStatusCode(), sprintf('Expected status code %d, got %d', $expectedCode, $response->getStatusCode()));
     }
 
     protected function assertResponseIsSuccessful(): void
     {
         $response = $this->getLastResponse();
         $this->assertNotNull($response, 'No response available');
-        if (null !== $response) {
-            $this->assertTrue($response->isSuccessful(), sprintf('Expected successful response, got %d', $response->getStatusCode()));
-        }
+        $this->assertTrue($response->isSuccessful(), sprintf('Expected successful response, got %d', $response->getStatusCode()));
     }
 
     protected function assertResponseIsRedirect(): void
     {
         $response = $this->getLastResponse();
         $this->assertNotNull($response, 'No response available');
-        if (null !== $response) {
-            $this->assertTrue($response->isRedirect(), sprintf('Expected redirect response, got %d', $response->getStatusCode()));
-        }
+        $this->assertTrue($response->isRedirect(), sprintf('Expected redirect response, got %d', $response->getStatusCode()));
     }
 
     protected function click(string $selector): void

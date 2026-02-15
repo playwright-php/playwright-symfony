@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Util;
 
 use Playwright\Page\PageInterface;
+use Symfony\Component\DomCrawler\Field\FormField;
 use Symfony\Component\DomCrawler\Form;
 
 /**
@@ -31,7 +32,7 @@ final class FormInteractor
             $xpath = XPathHelper::buildXPath($node);
             $locator = $page->locator('xpath='.$xpath);
 
-            $type = strtolower($node->getAttribute('type') ?? '');
+            $type = $node->getAttribute('type') ?: '';
 
             if ('select' === $node->tagName) {
                 $values = $field->getValue();
@@ -62,11 +63,15 @@ final class FormInteractor
             }
 
             // Default: text-like inputs and textarea
-            $locator->fill((string) $field->getValue());
+            $value = $field->getValue();
+            if (\is_array($value)) {
+                $value = implode('', $value);
+            }
+            $locator->fill((string) $value);
         }
     }
 
-    private static function getNodeFromField(mixed $field): \DOMElement
+    private static function getNodeFromField(FormField $field): \DOMElement
     {
         $reflection = new \ReflectionClass($field);
         $property = $reflection->getProperty('node');

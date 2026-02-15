@@ -49,7 +49,6 @@ class PlaywrightClient extends AbstractBrowser
 {
     private ?SymfonyRequest $lastSymfonyRequest = null;
     private ?SymfonyResponse $lastSymfonyResponse = null;
-    private ?Crawler $lastCrawler = null;
     /** @var string[] */
     private array $interceptedHosts = ['localhost', '127.0.0.1', 'testapp.local'];
     private ?object $hookReceiver = null;
@@ -167,7 +166,7 @@ class PlaywrightClient extends AbstractBrowser
     {
         $page = $this->getPage();
         if (null === $page) {
-            return $this->lastCrawler = new Crawler('', $this->baseUrl);
+            return new Crawler('', $this->baseUrl);
         }
 
         $content = '';
@@ -188,19 +187,10 @@ class PlaywrightClient extends AbstractBrowser
             }
         }
 
-        return $this->lastCrawler = new Crawler($content, $page->url());
+        return new Crawler($content, $page->url());
     }
 
-    private function getNodeFromField(mixed $field): \DOMElement
-    {
-        $reflection = new \ReflectionClass($field);
-        $property = $reflection->getProperty('node');
-        $node = $property->getValue($field);
 
-        \assert($node instanceof \DOMElement);
-
-        return $node;
-    }
 
     /**
      * @param array<string, mixed> $options

@@ -30,12 +30,12 @@ final class CookieJarSync
         foreach ($context->cookies() as $c) {
             $jar->set(new Cookie(
                 name: (string) $c['name'],
-                value: (string) ($c['value'] ?? ''),
-                expires: isset($c['expires']) ? (int) $c['expires'] : null,
-                path: (string) ($c['path'] ?? '/'),
-                domain: (string) ($c['domain'] ?? ''),
-                secure: (bool) ($c['secure'] ?? false),
-                httponly: (bool) ($c['httpOnly'] ?? false),
+                value: (string) $c['value'],
+                expires: $c['expires'],
+                path: (string) $c['path'],
+                domain: (string) $c['domain'],
+                secure: (bool) $c['secure'],
+                httponly: (bool) $c['httpOnly'],
             ));
         }
     }
@@ -45,12 +45,12 @@ final class CookieJarSync
         foreach ($context->cookies([$url]) as $c) {
             $jar->set(new Cookie(
                 name: (string) $c['name'],
-                value: (string) ($c['value'] ?? ''),
-                expires: isset($c['expires']) ? (int) $c['expires'] : null,
-                path: (string) ($c['path'] ?? '/'),
-                domain: (string) ($c['domain'] ?? ''),
-                secure: (bool) ($c['secure'] ?? false),
-                httponly: (bool) ($c['httpOnly'] ?? false),
+                value: (string) $c['value'],
+                expires: $c['expires'],
+                path: (string) $c['path'],
+                domain: (string) $c['domain'],
+                secure: (bool) $c['secure'],
+                httponly: (bool) $c['httpOnly'],
             ));
         }
     }
