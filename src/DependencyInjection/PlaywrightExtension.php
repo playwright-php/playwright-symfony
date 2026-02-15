@@ -59,25 +59,6 @@ final class PlaywrightExtension extends Extension
         $container->setParameter('playwright.asset_public_roots', $assetConfig['public_roots'] ?? ['%kernel.project_dir%/public']);
         $container->setParameter('playwright.asset_dev_no_cache', $assetConfig['disable_cache'] ?? true);
 
-        $container->register(FilesystemProxy::class, FilesystemProxy::class)
-            ->setArgument('$publicRoots', new Parameter('playwright.asset_public_roots'))
-            ->setPublic(false);
-
-        $container->register(AssetMapperProxy::class, AssetMapperProxy::class)
-            ->setArgument('$assetMapper', new Reference('asset_mapper', ContainerInterface::NULL_ON_INVALID_REFERENCE))
-            ->setPublic(false);
-
-        $container->register(AssetServer::class, AssetServer::class)
-            ->setArguments([
-                [
-                    new Reference(AssetMapperProxy::class),
-                    new Reference(FilesystemProxy::class),
-                ],
-                new Parameter('playwright.asset_prefixes'),
-                new Parameter('playwright.asset_dev_no_cache'),
-            ])
-            ->setPublic(true);
-
         // Register Playwright browsers (default + named)
         $this->registerBrowsers($container, $config['browsers'] ?? [], $config['default_browser'] ?? 'default');
 

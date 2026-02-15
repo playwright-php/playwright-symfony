@@ -1,318 +1,91 @@
 # Getting Started
 
-This guide will help you install and configure the Playwright Symfony Bundle in your Symfony application.
-
 ## Prerequisites
 
-Before installing, ensure you have:
-
-- **PHP 8.3 or higher**
-- **Symfony 7.0+ or 8.0+**
-- **Node.js 18 or higher** (required for Playwright)
-- **Composer** for dependency management
+- **PHP**: 8.3 or higher.
+- **Node.js**: 20 or higher.
+- **Composer**: Latest version recommended.
 
 ## Installation
 
-### Step 1: Install the Bundle
+### 1. Install the Bundle
 
-Install the bundle via Composer:
+Run the following command to add the bundle to your project's development dependencies:
 
 ```bash
 composer require --dev playwright-php/playwright-symfony
 ```
 
-The bundle will automatically register itself in `config/bundles.php` for the `test` environment:
+### 2. Set Up Playwright
 
-```php
-<?php
+After installing the bundle via Composer, you must initialize the Playwright environment. The bundle leverages the core `playwright-php` installation scripts.
 
-return [
-    // ... other bundles
-    Playwright\Symfony\PlaywrightSymfonyBundle::class => ['test' => true],
-];
-```
-
-### Step 2: Install Playwright Browsers
-
-Playwright requires browser binaries to be installed. Run:
+#### A. Initialize Playwright PHP
+This command sets up the necessary Node.js bridge and internal dependencies:
 
 ```bash
-# Install all browsers (Chromium, Firefox, WebKit)
-npx playwright install
-
-# Or install only Chromium (recommended for CI)
-npx playwright install chromium
+vendor/bin/playwright-install
 ```
 
-This downloads the browser binaries needed for testing. You only need to do this once per environment.
+#### B. Install Browsers
+Download the required browser binaries (Chromium, Firefox, WebKit). You have two options depending on your environment:
 
-## Basic Configuration
-
-The bundle works with sensible defaults, but you can customize it if needed.
-
-### Optional: Create Configuration File
-
-Create `config/packages/test/playwright.yaml`:
-
-```yaml
-playwright:
-    # Base URL for your application
-    base_url: 'http://localhost'
-
-    # Hosts to intercept (handled by Symfony kernel)
-    intercepted_hosts:
-        - 'localhost'
-        - '127.0.0.1'
-
-    # Enable debug logging
-    debug_logging: false
+**For Local Development:**
+```bash
+vendor/bin/playwright-install --browsers
 ```
 
-See [Configuration Reference](configuration.md) for all available options.
+**For CI or Fresh Servers (Includes OS Dependencies):**
+```bash
+vendor/bin/playwright-install --with-deps
+```
 
 ## Creating Your First Test
 
-### Step 1: Create a Test Base Class
-
-Create a base class that all your E2E tests will extend:
+The bundle provides a `PlaywrightTestCase` class that integrates the browser lifecycle with the Symfony Kernel.
 
 ```php
-<?php
-// tests/E2E/E2ETest.php
-
-namespace App\Tests\E2E;
+// tests/Controller/HomepageTest.php
+namespace App\Tests\Controller;
 
 use Playwright\Symfony\Test\PlaywrightTestCase;
-use Symfony\Component\HttpKernel\KernelInterface;
 
-abstract class E2ETest extends PlaywrightTestCase
+class HomepageTest extends PlaywrightTestCase
 {
-    protected static function createKernel(array $options = []): KernelInterface
+    public function testHomepageIsAccessible(): void
     {
-        return new \App\Kernel('test', false);
+        // Visit your app (handled in-process via Kernel interception)
+        $this->visit('/');
+
+        // Assert using the built-in helpers
+        $this->assertResponseIsSuccessful();
+        $this->assertPageContains('Welcome to Symfony');
+        
+        // Interact with the real browser using the Playwright Page API
+        $this->page->locator('a.btn-primary')->click();
+        $this->assertStringContainsString('/dashboard', $this->page->url());
     }
 }
 ```
 
-### Step 2: Write Your First Test
+## Running the Suite
 
-Create a simple test to verify everything works:
-
-```php
-<?php
-// tests/E2E/HomepageTest.php
-
-namespace App\Tests\E2E;
-
-class HomepageTest extends E2ETest
-{
-    public function testHomepageLoads(): void
-    {
-        // Navigate to homepage
-        $page = $this->visit('/');
-
-        // Verify page title
-        $title = $page->title();
-        $this->assertStringContainsString('Welcome', $title);
-
-        // Verify page content
-        $this->assertPageContains('Home');
-
-        // Inspect the response
-        $response = $this->getLastResponse();
-        $this->assertSame(200, $response->getStatusCode());
-    }
-}
-```
-
-### Step 3: Run Your Test
-
-Run the test with the `PLAYWRIGHT_E2E=1` environment variable:
+By default, browser tests are skipped to ensure your standard test suite remains fast. Use the `PLAYWRIGHT_E2E` environment variable to enable them.
 
 ```bash
-PLAYWRIGHT_E2E=1 vendor/bin/phpunit tests/E2E/HomepageTest.php
+PLAYWRIGHT_E2E=1 vendor/bin/phpunit
 ```
 
-**Important:** Tests are skipped by default unless `PLAYWRIGHT_E2E=1` is set. This prevents E2E tests from running in your regular test suite.
+### Debugging & Visualization
 
-## Running Tests
-
-### Basic Usage
+To see what is happening inside the browser during a test run, disable headless mode:
 
 ```bash
-# Run all E2E tests
-PLAYWRIGHT_E2E=1 vendor/bin/phpunit tests/E2E
-
-# Run specific test file
-PLAYWRIGHT_E2E=1 vendor/bin/phpunit tests/E2E/LoginTest.php
-
-# Run specific test method
-PLAYWRIGHT_E2E=1 vendor/bin/phpunit --filter testUserLogin tests/E2E
+PLAYWRIGHT_E2E=1 PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit
 ```
 
-### Debugging with Visible Browser
-
-Run tests with a visible browser window to see what's happening:
+To use a specific browser engine (default is `chromium`):
 
 ```bash
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
+PLAYWRIGHT_E2E=1 PLAYWRIGHT_BROWSER=firefox vendor/bin/phpunit
 ```
-
-This opens the browser window so you can watch the test execute in real-time.
-
-### Testing with Different Browsers
-
-```bash
-# Test with Firefox
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_BROWSER=firefox vendor/bin/phpunit tests/E2E
-
-# Test with WebKit (Safari engine)
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_BROWSER=webkit vendor/bin/phpunit tests/E2E
-
-# Test with Chromium (default)
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_BROWSER=chromium vendor/bin/phpunit tests/E2E
-```
-
-### Enable Verbose Logging
-
-See detailed logs of request interception:
-
-```bash
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_VERBOSE=1 vendor/bin/phpunit tests/E2E
-```
-
-## Common Testing Patterns
-
-### Testing a Login Form
-
-```php
-public function testUserLogin(): void
-{
-    $page = $this->visit('/login');
-
-    // Fill the login form
-    $page->fill('input[name="email"]', 'user@example.com');
-    $page->fill('input[name="password"]', 'password123');
-    $page->click('button[type="submit"]');
-
-    // Wait for navigation
-    $page->waitForLoadState();
-
-    // Verify login success
-    $this->assertPageContains('Dashboard');
-    $this->assertSelectorExists('.user-menu');
-}
-```
-
-### Testing with Authentication
-
-```php
-public function testProtectedPage(): void
-{
-    // Set authentication cookie
-    $this->authenticate('user@example.com', ['roles' => ['ROLE_USER']]);
-
-    // Visit protected page
-    $page = $this->visit('/profile');
-
-    // Verify access granted
-    $this->assertPageContains('My Profile');
-}
-```
-
-### Testing AJAX Interactions
-
-```php
-public function testAjaxLoad(): void
-{
-    $page = $this->visit('/articles');
-
-    // Click load more button
-    $page->click('#load-more');
-
-    // Wait for new content to appear
-    $page->waitForSelector('.article-10');
-
-    // Verify content loaded
-    $this->assertSelectorExists('.article-10');
-}
-```
-
-### Testing with Cookies
-
-```php
-public function testCookiePreferences(): void
-{
-    // Set a cookie before visiting
-    $this->setCookie('theme', 'dark');
-
-    $page = $this->visit('/');
-
-    // Verify dark theme is applied
-    $this->assertSelectorExists('body.theme-dark');
-
-    // Read cookie value
-    $theme = $this->getCookie('theme');
-    $this->assertEquals('dark', $theme);
-}
-```
-
-## Troubleshooting
-
-### Tests are Skipped
-
-**Problem:** All tests are skipped with message "Playwright E2E tests are disabled"
-
-**Solution:** Set the `PLAYWRIGHT_E2E=1` environment variable:
-```bash
-PLAYWRIGHT_E2E=1 vendor/bin/phpunit tests/E2E
-```
-
-### Browser Connection Error
-
-**Problem:** "Failed to connect JSON-RPC transport"
-
-**Solution:** Ensure Playwright browsers are installed:
-```bash
-npx playwright install chromium
-```
-
-### Node.js Not Found
-
-**Problem:** "node: command not found"
-
-**Solution:** Install Node.js 18 or higher:
-```bash
-# macOS with Homebrew
-brew install node
-
-# Ubuntu/Debian
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Or use nvm
-nvm install 18
-```
-
-### Tests Timeout
-
-**Problem:** Tests hang or timeout
-
-**Solution:** Increase timeout in your test or check browser installation:
-```php
-// In your test
-$page->setDefaultTimeout(60000); // 60 seconds
-```
-
-## Next Steps
-
-Now that you have the bundle installed and running:
-
-- Learn about all available [Test Helpers](helpers.md)
-- Explore [Configuration Options](configuration.md)
-- Understand the [Architecture](architecture.md)
-- Enable [Request Logging](logging.md) for debugging
-
-## Integration with CI/CD
-
-See [Configuration Reference](configuration.md#cicd-integration) for GitHub Actions, GitLab CI, and other CI/CD examples.

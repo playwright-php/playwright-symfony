@@ -12,11 +12,45 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
+use Playwright\Symfony\Asset\AssetMapperProxy;
+use Playwright\Symfony\Asset\FilesystemProxy;
+use Playwright\Symfony\Client\Interception\AssetServer;
+use Playwright\Symfony\Client\RequestConverter;
+use Playwright\Symfony\Client\ResponseConverter;
+use Playwright\Symfony\Command\DebugPlaywrightCommand;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 return static function (ContainerConfigurator $container): void {
     $services = $container->services()
         ->defaults()
             ->autowire()
             ->autoconfigure();
+
+    $services->set(RequestConverter::class);
+    $services->set(ResponseConverter::class);
+
+    $services->set(FilesystemProxy::class)
+        ->arg('$publicRoots', param('playwright.asset_public_roots'));
+
+    $services->set(AssetMapperProxy::class)
+        ->arg('$assetMapper', service('asset_mapper')->nullOnInvalid());
+
+    $services->set(AssetServer::class)
+        ->args([
+            [
+                service(AssetMapperProxy::class),
+                service(FilesystemProxy::class),
+            ],
+            param('playwright.asset_prefixes'),
+            param('playwright.asset_dev_no_cache'),
+        ]);
+
+    $services->set(DebugPlaywrightCommand::class)
+        ->arg('$interceptedHosts', param('playwright.intercepted_hosts'))
+        ->arg('$debug', param('playwright.debug'))
+        ->arg('$playwrightPath', param('playwright.playwright_path'))
+        ->arg('$nodePath', param('playwright.node_path'))
+        ->arg('$baseUrl', param('playwright.base_url'));
 };
