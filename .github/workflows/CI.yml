@@ -1,4 +1,4 @@
-name: "CI"
+name: CI
 
 on:
   push:
@@ -10,51 +10,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+
   cs:
-    name: "Code style"
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Git: checkout"
-        uses: actions/checkout@v4
-
-      - name: "PHP: setup 8.3"
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          coverage: none
-          tools: php-cs-fixer
-
-      - name: "Composer: validate"
-        run: composer validate --strict
-
-      - name: "Composer: install"
-        run: composer install --prefer-dist --no-interaction --no-progress
-
-      - name: "Php-CS-Fixer: version"
-        run: vendor/bin/php-cs-fixer -V
-
-      - name: "Php-CS-Fixer: check"
-        run: vendor/bin/php-cs-fixer fix --diff --dry-run
+    uses: playwright-php/.github/.github/workflows/CS.yml@main
+    # with:
+      # php-version: '8.4'
+      # composer-validate: true
+      # php-cs-fixer-args: '--diff --dry-run'
 
   sa:
-    name: "Static Analysis"
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Git: checkout"
-        uses: actions/checkout@v4
-
-      - name: "PHP: setup 8.4"
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          tools: phpstan
-
-      - name: "Composer: install"
-        run: composer install --prefer-dist --no-interaction --no-progress
-
-      - name: "PHPStan: version"
-        run: phpstan --version
-
-      - name: "PHPStan: analyze"
-        run: phpstan
+    uses: playwright-php/.github/.github/workflows/SA.yml@main
+    # with:
+      # php-version: '8.4'
+      # phpstan-args: 'analyse --no-progress --memory-limit=-1'
+  
