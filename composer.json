@@ -1,8 +1,19 @@
 {
     "name": "playwright-php/playwright-symfony",
-    "description": "Playwright PHP integration for Symfony Kernel and BrowserKit",
+    "description": "Playwright PHP integration for Symfony BrowserKit, DomCrawler and WebTestCase",
     "license": "MIT",
     "type": "symfony-bundle",
+    "keywords": [
+        "playwright",
+        "symfony",
+        "browserkit",
+        "domcrawler",
+        "test",
+        "symfony-bundle",
+        "e2e",
+        "symfony-e2e",
+        "symfony-test"
+    ],
     "authors": [
         {
             "name": "Simon André",
@@ -10,7 +21,7 @@
             "homepage": "https://github.com/smnandre"
         },
         {
-            "name": "Playwright Contributors",
+            "name": "Playwright PHP Contributors",
             "homepage": "https://github.com/playwright-php/playwright"
         }
     ],
@@ -27,10 +38,10 @@
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^12.0",
         "symfony/asset": "^7.3",
-        "symfony/asset-mapper": "^7.3",
-        "symfony/css-selector": "^8.0",
-        "symfony/event-dispatcher": "^7.3 || ^8.0",
-        "symfony/mime": "^7.3",
+        "symfony/asset-mapper": "^7.0 || ^8.0",
+        "symfony/css-selector": "^7.0 || ^8.0",
+        "symfony/event-dispatcher": "^7.0 || ^8.0",
+        "symfony/mime":  "^7.0 || ^8.0",
         "symfony/phpunit-bridge": "^7.3 || ^8.0",
         "symfony/profiler-pack": "^1.0",
         "symfony/security-bundle": "^7.3 || ^8.0"
@@ -43,12 +54,6 @@
     "autoload-dev": {
         "psr-4": {
             "Playwright\\Symfony\\Tests\\": "tests/"
-        }
-    },
-    "extra": {
-        "symfony": {
-            "allow-contrib": false,
-            "require": "7.0.*"
         }
     },
     "config": {
