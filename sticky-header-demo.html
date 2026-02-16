@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Sticky Header Animation - Fixed</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+        }
+
+        /* Navbar - always sticky at top */
+        .navbar {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            min-height: 60px;
+        }
+
+        .navbar-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            min-height: 60px;
+        }
+
+        .nav-links {
+            margin-left: auto;
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.9;
+            transition: opacity 0.2s;
+        }
+
+        .nav-links a:hover {
+            opacity: 1;
+        }
+
+        /* Hero section */
+        .hero {
+            position: relative;
+            height: 400px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* The animated h1 - uses position fixed to move freely */
+        .hero h1 {
+            position: fixed;
+            top: 200px; /* Start in the middle of the hero */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 4rem;
+            font-weight: 800;
+            color: white;
+            text-align: center;
+            margin: 0;
+            z-index: 101;
+            white-space: nowrap;
+
+            /* Scroll-driven animation */
+            animation: move-to-navbar linear;
+            animation-timeline: scroll();
+            animation-range: 0 300px;
+        }
+
+        @keyframes move-to-navbar {
+            0% {
+                top: 200px;
+                font-size: 4rem;
+            }
+            100% {
+                top: 10px;
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Content section */
+        .content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        .content h2 {
+            color: #333;
+            margin: 3rem 0 1.5rem;
+            font-size: 2rem;
+        }
+
+        .content p {
+            color: #666;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Fallback for unsupported browsers */
+        @supports not (animation-timeline: scroll()) {
+            body::before {
+                content: "⚠️ Your browser doesn't support scroll-driven animations. Try Chrome 115+, Edge 115+, or Safari 17.5+";
+                display: block;
+                background: #ff6b6b;
+                color: white;
+                padding: 1rem;
+                text-align: center;
+                font-size: 0.9rem;
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+            }
+
+            .hero h1 {
+                position: relative;
+                top: auto;
+                left: auto;
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#services">Services</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <h1>Playwright Symfony</h1>
+    </section>
+
+    <div class="content">
+        <h2>Scroll Down to See It Work</h2>
+        <p>Now the h1 <strong>actually moves from the hero section UP into the navbar</strong> as you scroll! It uses <code>position: fixed</code> with scroll-driven animations to change both position and size.</p>
+
+        <div class="card">
+            <h3>✅ What's Fixed</h3>
+            <ul style="margin-left: 2rem; color: #666; margin-top: 1rem;">
+                <li>H1 starts at <code>top: 200px</code> (center of hero)</li>
+                <li>Animates to <code>top: 10px</code> (inside navbar)</li>
+                <li>Shrinks from 4rem to 1.5rem simultaneously</li>
+                <li>Uses <code>position: fixed</code> so it can move freely</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>How It Works Now</h3>
+            <p>The h1 uses <code>position: fixed</code> instead of sticky, which allows it to move vertically with the scroll animation. The <code>@keyframes</code> animates both the <code>top</code> property (position) and <code>font-size</code> simultaneously.</p>
+        </div>
+
+        <h2>Keep Scrolling</h2>
+        <p>The title smoothly moves up into the navbar and stays there as you continue scrolling.</p>
+
+        <div class="card">
+            <h3>Section 1</h3>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+        </div>
+
+        <div class="card">
+            <h3>Section 2</h3>
+            <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+        </div>
+
+        <div class="card">
+            <h3>Section 3</h3>
+            <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+        </div>
+
+        <div class="card">
+            <h3>Section 4</h3>
+            <p>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+        </div>
+
+        <div class="card">
+            <h3>Section 5</h3>
+            <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</p>
+        </div>
+
+        <div class="card">
+            <h3>Scroll Back Up!</h3>
+            <p>Watch it animate in reverse - the h1 moves back down and grows to its original size.</p>
+        </div>
+    </div>
+</body>
+</html>
