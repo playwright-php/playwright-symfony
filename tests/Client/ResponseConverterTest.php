@@ -255,6 +255,25 @@ class ResponseConverterTest extends TestCase
         $this->assertTrue($this->converter->isBinaryContentType('application/vnd.ms-excel'));
     }
 
+    public function testIsBinaryContentTypeTreatsStructuredHtmlSuffixAsText(): void
+    {
+        $this->assertFalse($this->converter->isBinaryContentType('application/vnd.live-component+html'));
+        $this->assertFalse($this->converter->isBinaryContentType('application/vnd.example+html; charset=utf-8'));
+    }
+
+    public function testPrepareFulfillOptionsLeavesLiveComponentHtmlAsPlainText(): void
+    {
+        $html = '<div id="live-1">page 2</div>';
+        $response = new Response($html, 200, [
+            'content-type' => 'application/vnd.live-component+html',
+        ]);
+
+        $opts = $this->converter->prepareFulfillOptions($response);
+
+        $this->assertSame($html, $opts['body']);
+        $this->assertArrayNotHasKey('isBase64', $opts);
+    }
+
     public function testPrepareFulfillOptionsForBinaryResponseWithContentType(): void
     {
         $binaryData = random_bytes(32);

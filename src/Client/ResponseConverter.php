@@ -162,7 +162,9 @@ class ResponseConverter
             }
         }
 
-        if (str_ends_with($contentType, '+json') || str_ends_with($contentType, '+xml')) {
+        $baseType = trim(explode(';', $contentType, 2)[0]);
+
+        if (str_ends_with($baseType, '+json') || str_ends_with($baseType, '+xml') || str_ends_with($baseType, '+html')) {
             return false;
         }
 
