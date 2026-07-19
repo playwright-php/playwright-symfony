@@ -49,6 +49,8 @@ use Playwright\Regex;
 class FakePage implements PageInterface
 {
     public ?string $lastGoto = null;
+    /** @var list<array{selector: string, method: string, arguments: array<mixed>}> */
+    public array $locatorCalls = [];
     /** @var callable|null */
     private $routeHandler;
 

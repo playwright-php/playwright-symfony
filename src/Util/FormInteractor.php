@@ -14,7 +14,9 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Util;
 
+use Playwright\Locator\LocatorInterface;
 use Playwright\Page\PageInterface;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Field\FormField;
 use Symfony\Component\DomCrawler\Form;
 
@@ -53,8 +55,9 @@ final class FormInteractor
             }
 
             if ('radio' === $type) {
-                if (null !== $field->getValue()) {
-                    $locator->check();
+                $value = $field->getValue();
+                if (null !== $value && is_scalar($value)) {
+                    self::radioLocator($page, $form, $node, (string) $value)->check();
                 }
                 continue;
             }
@@ -80,6 +83,29 @@ final class FormInteractor
             }
             $locator->fill((string) $value);
         }
+    }
+
+    /**
+     * Locates the radio input carrying the selected value.
+     *
+     * DomCrawler aggregates a whole radio group into one ChoiceFormField whose
+     * node is the first input of the group, so checking that node would always
+     * select the first radio regardless of the chosen value.
+     */
+    private static function radioLocator(PageInterface $page, Form $form, \DOMElement $node, string $value): LocatorInterface
+    {
+        if ($node->getAttribute('value') === $value) {
+            return $page->locator('xpath='.XPathHelper::buildXPath($node));
+        }
+
+        $xpath = sprintf(
+            '%s//input[@type=\'radio\'][@name=%s][@value=%s]',
+            XPathHelper::buildXPath($form->getNode()),
+            Crawler::xpathLiteral($node->getAttribute('name')),
+            Crawler::xpathLiteral($value),
+        );
+
+        return $page->locator('xpath='.$xpath);
     }
 
     private static function getNodeFromField(FormField $field): \DOMElement

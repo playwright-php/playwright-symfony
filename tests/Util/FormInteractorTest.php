@@ -43,11 +43,66 @@ final class FormInteractorTest extends TestCase
         $context = new FakeBrowserContext();
         $page = new FakePage($context);
 
-        // FormInteractor will call $page->locator() which uses our FakePage tracking
         FormInteractor::fill($page, $form);
 
-        // We can't use the tracking we removed, but we can verify it didn't crash
-        // and we reached 100% coverage by hitting all paths.
-        $this->assertTrue(true);
+        $methods = array_column($page->locatorCalls, 'method');
+        $this->assertContains('fill', $methods);
+        $this->assertContains('check', $methods);
+        $this->assertContains('selectOption', $methods);
+    }
+
+    public function testFillChecksTheRadioMatchingTheSelectedValue(): void
+    {
+        $html = '<html><body><form>
+            <input type="radio" name="color" value="red">
+            <input type="radio" name="color" value="green">
+            <input type="radio" name="color" value="blue">
+            <input type="submit">
+        </form></body></html>';
+
+        $crawler = new Crawler($html, 'http://localhost');
+        $form = $crawler->filterXPath('//form')->form();
+        $form->setValues(['color' => 'green']);
+
+        $page = new FakePage(new FakeBrowserContext());
+
+        FormInteractor::fill($page, $form);
+
+        $checks = array_values(array_filter(
+            $page->locatorCalls,
+            static fn (array $call): bool => 'check' === $call['method'],
+        ));
+
+        $this->assertCount(1, $checks);
+        $this->assertStringEndsWith(
+            "//input[@type='radio'][@name='color'][@value='green']",
+            $checks[0]['selector'],
+        );
+    }
+
+    public function testFillChecksTheRadioNodeWhenItCarriesTheSelectedValue(): void
+    {
+        $html = '<html><body><form>
+            <input type="radio" name="color" value="red">
+            <input type="radio" name="color" value="green">
+            <input type="submit">
+        </form></body></html>';
+
+        $crawler = new Crawler($html, 'http://localhost');
+        $form = $crawler->filterXPath('//form')->form();
+        $form->setValues(['color' => 'red']);
+
+        $page = new FakePage(new FakeBrowserContext());
+
+        FormInteractor::fill($page, $form);
+
+        $checks = array_values(array_filter(
+            $page->locatorCalls,
+            static fn (array $call): bool => 'check' === $call['method'],
+        ));
+
+        $this->assertCount(1, $checks);
+        // "red" is the value of the field node itself: the direct XPath is used.
+        $this->assertStringEndsWith('/input[1]', $checks[0]['selector']);
     }
 }

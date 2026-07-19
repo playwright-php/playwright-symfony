@@ -23,24 +23,42 @@ class MockLocator implements LocatorInterface
     {
     }
 
+    /**
+     * @param array<mixed> $arguments
+     */
+    private function record(string $method, array $arguments): void
+    {
+        $this->page->locatorCalls[] = [
+            'selector' => $this->selector,
+            'method' => $method,
+            'arguments' => $arguments,
+        ];
+    }
+
     public function click(mixed $options = []): void
     {
+        $this->record('click', []);
     }
 
     public function fill(string $value, mixed $options = []): void
     {
+        $this->record('fill', [$value]);
     }
 
     public function check(mixed $options = []): void
     {
+        $this->record('check', []);
     }
 
     public function uncheck(mixed $options = []): void
     {
+        $this->record('uncheck', []);
     }
 
     public function selectOption(mixed $values, mixed $options = []): array
     {
+        $this->record('selectOption', [$values]);
+
         return [];
     }
 
@@ -56,6 +74,8 @@ class MockLocator implements LocatorInterface
 
     public function __call($name, $arguments)
     {
+        $this->record((string) $name, (array) $arguments);
+
         return null;
     }
 
