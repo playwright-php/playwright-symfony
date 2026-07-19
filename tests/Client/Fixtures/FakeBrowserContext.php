@@ -45,7 +45,7 @@ class FakeBrowserContext implements BrowserContextInterface
     {
     }
 
-    public function clearCookies(): void
+    public function clearCookies(array $options = []): void
     {
         $this->cookies = [];
     }

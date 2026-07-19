@@ -76,7 +76,7 @@ final class FormInteractor
             // Default: text-like inputs and textarea
             $value = $field->getValue();
             if (\is_array($value)) {
-                $value = implode('', $value);
+                $value = implode('', array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', $value));
             }
             $locator->fill((string) $value);
         }
