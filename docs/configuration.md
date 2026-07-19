@@ -35,9 +35,11 @@ this list will be handled as a standard external request by the browser.
 
 ### `base_url`
 
-**Type**: `string` | **Default**: `http://localhost`
+**Type**: `string` | **Default**: `%env(default::PLAYWRIGHT_BASE_URL)%`
 
-The default base URL used when calling `$this->visit()`.
+The base URL used when calling `$this->visit()`. By default the value comes from the
+`PLAYWRIGHT_BASE_URL` environment variable when it is defined. When neither the option nor the
+environment variable is set, `PlaywrightTestCase` falls back to `http://localhost`.
 
 ### `browsers`
 
