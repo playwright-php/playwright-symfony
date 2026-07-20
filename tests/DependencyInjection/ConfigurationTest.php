@@ -39,7 +39,7 @@ final class ConfigurationTest extends TestCase
         $this->assertTrue($config['enabled']);
         $this->assertEquals(['localhost', '127.0.0.1', 'testapp.local'], $config['intercepted_hosts']);
         $this->assertEquals('%kernel.debug%', $config['debug']);
-        $this->assertEquals('node', $config['node_path']);
+        $this->assertNull($config['node_path']);
 
         $this->assertArrayHasKey('browsers', $config);
         $this->assertArrayHasKey('default', $config['browsers']);
@@ -124,6 +124,64 @@ final class ConfigurationTest extends TestCase
         $this->assertEquals('webkit', $webkitBrowser['type']);
         $this->assertFalse($webkitBrowser['headless']);
         $this->assertEquals(30000, $webkitBrowser['timeout_ms']); // default
+    }
+
+    public function testBrowserAcceptsEnvAndPathOptions(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            [
+                'browsers' => [
+                    'custom' => [
+                        'type' => 'firefox',
+                        'headless' => false,
+                        'timeout_ms' => 15000,
+                        'slowmo_ms' => 50,
+                        'args' => ['--no-sandbox'],
+                        'env' => ['DEBUG' => 'pw:*'],
+                        'node_path' => '/usr/local/bin/node',
+                        'screenshot_dir' => '/tmp/screenshots',
+                    ],
+                ],
+            ],
+        ]);
+
+        $browser = $config['browsers']['custom'];
+        $this->assertSame(['DEBUG' => 'pw:*'], $browser['env']);
+        $this->assertSame('/usr/local/bin/node', $browser['node_path']);
+        $this->assertSame('/tmp/screenshots', $browser['screenshot_dir']);
+    }
+
+    public function testBrowserAcceptsAllWiredOptions(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            ['browsers' => ['custom' => [
+                'channel' => 'chrome-beta',
+                'min_node_version' => '22.0.0',
+                'downloads_dir' => '/tmp/dl',
+                'videos_dir' => '/tmp/vid',
+                'tracing' => ['enabled' => true, 'dir' => '/tmp/tr', 'screenshots' => true, 'snapshots' => true],
+                'proxy' => ['server' => 'http://proxy.local:8080', 'username' => 'u', 'password' => 'p', 'bypass' => 'localhost'],
+            ]]],
+        ]);
+
+        $browser = $config['browsers']['custom'];
+        $this->assertSame('chrome-beta', $browser['channel']);
+        $this->assertSame('22.0.0', $browser['min_node_version']);
+        $this->assertSame('/tmp/dl', $browser['downloads_dir']);
+        $this->assertSame('/tmp/vid', $browser['videos_dir']);
+        $this->assertTrue($browser['tracing']['enabled']);
+        $this->assertSame('/tmp/tr', $browser['tracing']['dir']);
+        $this->assertSame('http://proxy.local:8080', $browser['proxy']['server']);
+        $this->assertSame('u', $browser['proxy']['username']);
+    }
+
+    public function testProxyRequiresAServer(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration($this->configuration, [
+            ['browsers' => ['default' => ['proxy' => ['username' => 'u']]]],
+        ]);
     }
 
     public function testInvalidBrowserType(): void

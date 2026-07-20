@@ -18,9 +18,12 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Browser\BrowserContextInterface;
+use Playwright\Browser\BrowserType;
+use Playwright\Configuration\PlaywrightConfig;
 use Playwright\Symfony\DependencyInjection\Configuration;
 use Playwright\Symfony\DependencyInjection\PlaywrightExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Reference;
 
 #[CoversClass(PlaywrightExtension::class)]
 #[UsesClass(Configuration::class)]
@@ -166,5 +169,115 @@ class PlaywrightExtensionTest extends TestCase
         // Named autowiring alias for constructor arg $firefoxDebug
         $this->assertTrue($container->hasAlias(BrowserContextInterface::class.' $firefoxDebug'));
         $this->assertSame('playwright.browser.firefox_debug', (string) $container->getAlias(BrowserContextInterface::class.' $firefoxDebug'));
+    }
+
+    public function testBrowserConfigDefinitionMapsWiredOptions(): void
+    {
+        $container = new ContainerBuilder();
+        $extension = new PlaywrightExtension();
+
+        $extension->load([
+            [
+                'enabled' => true,
+                'node_path' => '/opt/node/bin/node',
+                'browsers' => [
+                    'default' => [
+                        'type' => 'webkit',
+                        'headless' => false,
+                        'timeout_ms' => 12000,
+                        'slowmo_ms' => 25,
+                        'args' => ['--foo'],
+                        'env' => ['DEBUG' => 'pw:*'],
+                        'screenshot_dir' => '/tmp/shots',
+                    ],
+                ],
+            ],
+        ], $container);
+
+        $definition = $container->getDefinition('playwright.browser.default.config');
+
+        $this->assertSame(PlaywrightConfig::class, $definition->getClass());
+        $this->assertSame('/opt/node/bin/node', $definition->getArgument('$nodePath'));
+        $this->assertSame(BrowserType::WEBKIT, $definition->getArgument('$browser'));
+        $this->assertFalse($definition->getArgument('$headless'));
+        $this->assertSame(12000, $definition->getArgument('$timeoutMs'));
+        $this->assertSame(25, $definition->getArgument('$slowMoMs'));
+        $this->assertSame(['--foo'], $definition->getArgument('$args'));
+        $this->assertSame(['DEBUG' => 'pw:*'], $definition->getArgument('$env'));
+        $this->assertSame('/tmp/shots', $definition->getArgument('$screenshotDir'));
+    }
+
+    public function testBrowserContextDefinitionUsesConfigOnlyFactory(): void
+    {
+        $container = new ContainerBuilder();
+        $extension = new PlaywrightExtension();
+
+        $extension->load([['enabled' => true]], $container);
+
+        $definition = $container->getDefinition('playwright.browser.default');
+
+        $this->assertSame([PlaywrightExtension::class, 'createBrowserContext'], $definition->getFactory());
+        $this->assertCount(1, $definition->getArguments());
+        $this->assertEquals(new Reference('playwright.browser.default.config'), $definition->getArgument(0));
+    }
+
+    public function testBrowserNodePathFallsBackToGlobalNodePath(): void
+    {
+        $container = new ContainerBuilder();
+        $extension = new PlaywrightExtension();
+
+        $extension->load([
+            [
+                'enabled' => true,
+                'node_path' => '/global/node',
+                'browsers' => [
+                    'default' => [],
+                    'custom' => ['node_path' => '/custom/node'],
+                ],
+            ],
+        ], $container);
+
+        $this->assertSame('/global/node', $container->getDefinition('playwright.browser.default.config')->getArgument('$nodePath'));
+        $this->assertSame('/custom/node', $container->getDefinition('playwright.browser.custom.config')->getArgument('$nodePath'));
+    }
+
+    public function testMapsWiredOptionsToConstructorArguments(): void
+    {
+        $container = new ContainerBuilder();
+        (new PlaywrightExtension())->load([
+            [
+                'enabled' => true,
+                'browsers' => [
+                    'default' => [
+                        'channel' => 'chrome-beta',
+                        'min_node_version' => '22.0.0',
+                        'downloads_dir' => '/tmp/dl',
+                        'videos_dir' => '/tmp/vid',
+                        'tracing' => ['enabled' => true, 'dir' => '/tmp/tr', 'screenshots' => true, 'snapshots' => false],
+                        'proxy' => ['server' => 'http://proxy.local:8080', 'username' => 'u', 'password' => null, 'bypass' => null],
+                    ],
+                ],
+            ],
+        ], $container);
+
+        $def = $container->getDefinition('playwright.browser.default.config');
+        $this->assertSame('chrome-beta', $def->getArgument('$channel'));
+        $this->assertSame('22.0.0', $def->getArgument('$minNodeVersion'));
+        $this->assertSame('/tmp/dl', $def->getArgument('$downloadsDir'));
+        $this->assertSame('/tmp/vid', $def->getArgument('$videosDir'));
+        $this->assertTrue($def->getArgument('$tracingEnabled'));
+        $this->assertSame('/tmp/tr', $def->getArgument('$traceDir'));
+        $this->assertTrue($def->getArgument('$traceScreenshots'));
+        $this->assertFalse($def->getArgument('$traceSnapshots'));
+        // server kept, null optional keys dropped to match the library type
+        $this->assertSame(['server' => 'http://proxy.local:8080', 'username' => 'u'], $def->getArgument('$proxy'));
+    }
+
+    public function testProxyArgumentIsNullWhenNotConfigured(): void
+    {
+        $container = new ContainerBuilder();
+        (new PlaywrightExtension())->load([['enabled' => true]], $container);
+
+        $this->assertNull($container->getDefinition('playwright.browser.default.config')->getArgument('$proxy'));
     }
 }

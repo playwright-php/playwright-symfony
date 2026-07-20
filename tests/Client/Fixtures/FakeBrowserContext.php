@@ -19,6 +19,8 @@ use Playwright\Browser\BrowserContextInterface;
 use Playwright\Browser\StorageState;
 use Playwright\Network\NetworkThrottling;
 use Playwright\Page\PageInterface;
+use Playwright\Symfony\Tests\Fixtures\Tracing\NullTracing;
+use Playwright\Tracing\TracingInterface;
 
 class FakeBrowserContext implements BrowserContextInterface
 {
@@ -132,6 +134,11 @@ class FakeBrowserContext implements BrowserContextInterface
     public function getEnv(string $name): ?string
     {
         return $this->envValue;
+    }
+
+    public function tracing(): TracingInterface
+    {
+        return new NullTracing();
     }
 
     public function startTracing(PageInterface $page, array $options = []): void
