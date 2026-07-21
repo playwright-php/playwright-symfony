@@ -43,8 +43,16 @@ $crawler = $client->submit($form);
 
 ## Options
 
-- `followPopups`: when a click opens a new tab, the client switches to it (Panther-like). You can turn it off if you
-  prefer single-tab only.
+- `setFollowPopups(bool)`: disabled by default. When enabled, a click or submit that opens a new
+  tab makes the client switch to it (Panther-like). Enabling it makes every click() and submit()
+  wait for a potential popup before returning, so actions that do not open one pay the popup
+  timeout: enable it only around interactions expected to open a new tab.
+
+```php
+$client->setFollowPopups(true);
+$client->click($crawler->selectLink('Open preview')->link());
+$client->setFollowPopups(false);
+```
 
 ## Container integration
 

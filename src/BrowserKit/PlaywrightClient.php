@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\BrowserKit;
 
 use Playwright\Browser\BrowserContextInterface;
+use Playwright\Exception\TimeoutException;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Util\CookieJarSync;
 use Playwright\Symfony\Util\FormInteractor;
@@ -56,7 +57,7 @@ use Symfony\Component\DomCrawler\Link;
  *
  * Features:
  * - Real browser semantics: click(), submit() use Playwright actions (not synthetic HTTP)
- * - Handles popups: automatically switches to new tabs when links open them
+ * - Popup support: opt-in via setFollowPopups(true), switches to new tabs when links open them
  * - Form handling: creates synthetic forms in-page to preserve browser events
  * - Cookie sync: keeps BrowserKit CookieJar in sync with Playwright context
  * - Server params: maps HTTP_* headers and PHP_AUTH_* credentials to Playwright
@@ -98,7 +99,7 @@ final class PlaywrightClient extends AbstractBrowser
 
     private ?BrowserKitResponse $lastResponse = null;
 
-    private bool $followPopups = true;
+    private bool $followPopups = false;
 
     /**
      * @param array<string, mixed> $server
@@ -133,6 +134,19 @@ final class PlaywrightClient extends AbstractBrowser
     public function getPage(): PageInterface
     {
         return $this->page;
+    }
+
+    /**
+     * Enables or disables following popups opened by click() and submit().
+     *
+     * When enabled, an action that opens a new tab makes the client switch to
+     * it (Panther-like). Every action then waits for a potential popup before
+     * returning, which adds the popup timeout to actions that do not open one:
+     * enable it only for interactions expected to open a new tab.
+     */
+    public function setFollowPopups(bool $followPopups): void
+    {
+        $this->followPopups = $followPopups;
     }
 
     public function getLastResponse(): ?BrowserKitResponse
@@ -316,10 +330,13 @@ JS,
             return;
         }
 
-        $popup = $this->page->context()->waitForPopup(function () use ($action): void {
-            $action();
-        });
-        $this->page = $popup;
+        try {
+            $this->page = $this->page->context()->waitForPopup(static function () use ($action): void {
+                $action();
+            });
+        } catch (TimeoutException) {
+            // The action ran but no popup opened: stay on the current page.
+        }
     }
 
     private function applyServerParams(Request $request): void

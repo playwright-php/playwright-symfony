@@ -26,6 +26,7 @@ class FakeBrowserContext implements BrowserContextInterface
     public array $cookies = [];
     public array $extraHTTPHeaders = [];
     public ?array $httpCredentials = null;
+    public int $waitForPopupCalls = 0;
     /** @var array<int, PageInterface> */
     private array $pages = [];
     private ?string $envValue = null;
@@ -164,6 +165,9 @@ class FakeBrowserContext implements BrowserContextInterface
 
     public function waitForPopup(callable $action, array $options = []): PageInterface
     {
+        ++$this->waitForPopupCalls;
+        $action();
+
         return $this->newPage();
     }
 

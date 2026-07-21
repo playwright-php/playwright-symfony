@@ -17,9 +17,14 @@ namespace Playwright\Symfony\Tests\BrowserKit;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Playwright\Exception\TimeoutException;
+use Playwright\Page\PageInterface;
 use Playwright\Symfony\BrowserKit\PlaywrightClient;
 use Playwright\Symfony\Tests\Client\Fixtures\FakeBrowserContext;
+use Playwright\Symfony\Tests\Client\Fixtures\FakePage;
 use Playwright\Symfony\Util\CookieJarSync;
+use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\DomCrawler\Link;
 
 #[CoversClass(PlaywrightClient::class)]
 #[UsesClass(CookieJarSync::class)]
@@ -220,6 +225,69 @@ final class PlaywrightClientTest extends TestCase
 
         self::assertNotNull($response);
         self::assertSame(200, $response->getStatusCode());
+    }
+
+    public function testClickDoesNotWaitForPopupByDefault(): void
+    {
+        $context = new FakeBrowserContext();
+        $client = PlaywrightClient::fromContext($context);
+        $client->request('GET', 'http://example.test/');
+        $pageBeforeClick = $client->getPage();
+        self::assertInstanceOf(FakePage::class, $pageBeforeClick);
+
+        $client->click($this->createLink());
+
+        self::assertSame(0, $context->waitForPopupCalls);
+        self::assertSame($pageBeforeClick, $client->getPage());
+        self::assertContains('click', array_column($pageBeforeClick->locatorCalls, 'method'));
+    }
+
+    public function testClickFollowsPopupWhenEnabled(): void
+    {
+        $context = new FakeBrowserContext();
+        $client = PlaywrightClient::fromContext($context);
+        $client->setFollowPopups(true);
+        $client->request('GET', 'http://example.test/');
+        $pageBeforeClick = $client->getPage();
+        self::assertInstanceOf(FakePage::class, $pageBeforeClick);
+
+        $client->click($this->createLink());
+
+        self::assertSame(1, $context->waitForPopupCalls);
+        self::assertNotSame($pageBeforeClick, $client->getPage());
+        self::assertContains('click', array_column($pageBeforeClick->locatorCalls, 'method'));
+    }
+
+    public function testClickStaysOnPageWhenNoPopupOpens(): void
+    {
+        $context = new class extends FakeBrowserContext {
+            public function waitForPopup(callable $action, array $options = []): PageInterface
+            {
+                $action();
+
+                throw new TimeoutException('No popup was created within the timeout period');
+            }
+        };
+        $client = PlaywrightClient::fromContext($context);
+        $client->setFollowPopups(true);
+        $client->request('GET', 'http://example.test/');
+        $pageBeforeClick = $client->getPage();
+        self::assertInstanceOf(FakePage::class, $pageBeforeClick);
+
+        $client->click($this->createLink());
+
+        self::assertSame($pageBeforeClick, $client->getPage());
+        self::assertContains('click', array_column($pageBeforeClick->locatorCalls, 'method'));
+    }
+
+    private function createLink(): Link
+    {
+        $crawler = new Crawler(
+            '<html><body><a id="next-link" href="/next">Next</a></body></html>',
+            'http://example.test/',
+        );
+
+        return $crawler->filter('#next-link')->link();
     }
 
     public function testApplyServerParamsWithHttpHeaders(): void
