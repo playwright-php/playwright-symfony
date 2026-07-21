@@ -141,6 +141,24 @@ final class ConfigurationTest extends TestCase
         $this->processor->processConfiguration($this->configuration, [$inputConfig]);
     }
 
+    public function testBaseUrlDefaultDoesNotRequireEnvVar(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, []);
+
+        // The "default::" processor resolves to null when PLAYWRIGHT_BASE_URL is not
+        // defined, instead of throwing EnvNotFoundException at runtime.
+        $this->assertSame('%env(default::PLAYWRIGHT_BASE_URL)%', $config['base_url']);
+    }
+
+    public function testCustomBaseUrl(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            ['base_url' => 'http://testapp.local:8080'],
+        ]);
+
+        $this->assertSame('http://testapp.local:8080', $config['base_url']);
+    }
+
     public function testCustomNodePath(): void
     {
         $inputConfig = [
