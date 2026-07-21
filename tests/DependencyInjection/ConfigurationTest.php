@@ -39,7 +39,7 @@ final class ConfigurationTest extends TestCase
         $this->assertTrue($config['enabled']);
         $this->assertEquals(['localhost', '127.0.0.1', 'testapp.local'], $config['intercepted_hosts']);
         $this->assertEquals('%kernel.debug%', $config['debug']);
-        $this->assertEquals('node', $config['node_path']);
+        $this->assertNull($config['node_path']);
 
         $this->assertArrayHasKey('browsers', $config);
         $this->assertArrayHasKey('default', $config['browsers']);
@@ -124,6 +124,47 @@ final class ConfigurationTest extends TestCase
         $this->assertEquals('webkit', $webkitBrowser['type']);
         $this->assertFalse($webkitBrowser['headless']);
         $this->assertEquals(30000, $webkitBrowser['timeout_ms']); // default
+    }
+
+    public function testBrowserAcceptsWiredOptionsOnly(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [
+            [
+                'browsers' => [
+                    'custom' => [
+                        'type' => 'firefox',
+                        'headless' => false,
+                        'timeout_ms' => 15000,
+                        'slowmo_ms' => 50,
+                        'args' => ['--no-sandbox'],
+                        'env' => ['DEBUG' => 'pw:*'],
+                        'node_path' => '/usr/local/bin/node',
+                        'screenshot_dir' => '/tmp/screenshots',
+                    ],
+                ],
+            ],
+        ]);
+
+        $browser = $config['browsers']['custom'];
+        $this->assertSame(['DEBUG' => 'pw:*'], $browser['env']);
+        $this->assertSame('/usr/local/bin/node', $browser['node_path']);
+        $this->assertSame('/tmp/screenshots', $browser['screenshot_dir']);
+    }
+
+    public function testBrowserRejectsUnwiredOptions(): void
+    {
+        // These options existed in earlier versions but had no runtime effect:
+        // they are rejected until the core library actually consumes them.
+        foreach (['channel', 'min_node_version', 'downloads_dir', 'videos_dir', 'tracing', 'proxy'] as $option) {
+            try {
+                $this->processor->processConfiguration($this->configuration, [
+                    ['browsers' => ['default' => [$option => 'x']]],
+                ]);
+                $this->fail(sprintf('Option "%s" should be rejected.', $option));
+            } catch (InvalidConfigurationException) {
+                $this->addToAssertionCount(1);
+            }
+        }
     }
 
     public function testInvalidBrowserType(): void

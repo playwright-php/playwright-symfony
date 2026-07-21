@@ -48,19 +48,29 @@ The base URL used when calling `$this->visit()`. By default the value comes from
 `PLAYWRIGHT_BASE_URL` environment variable when it is defined. When neither the option nor the
 environment variable is set, `PlaywrightTestCase` falls back to `http://localhost`.
 
+### `node_path`
+
+**Type**: `string|null` | **Default**: `null`
+
+Path to the Node.js executable running the Playwright server. When `null`, the executable is
+auto-detected. Can be overridden per browser.
+
 ### `browsers`
 
 **Type**: `array`
 
 Defines named browser configurations.
 
-| Key          | Description                        | Default    |
-|--------------|------------------------------------|------------|
-| `type`       | `chromium`, `firefox`, or `webkit` | `chromium` |
-| `headless`   | Run browser without UI             | `true`     |
-| `timeout_ms` | Default timeout for actions        | `30000`    |
-| `slowmo_ms`  | Slow down operations by X ms       | `0`        |
-| `args`       | Array of browser launch arguments  | `[]`       |
+| Key              | Description                                                     | Default    |
+|------------------|-----------------------------------------------------------------|------------|
+| `type`           | `chromium`, `firefox`, or `webkit`                              | `chromium` |
+| `headless`       | Run browser without UI                                          | `true`     |
+| `timeout_ms`     | Timeout in milliseconds for Playwright operations               | `30000`    |
+| `slowmo_ms`      | Slow down operations by X ms                                    | `0`        |
+| `args`           | Array of browser launch arguments                               | `[]`       |
+| `env`            | Environment variables for the Playwright Node.js server process | `[]`       |
+| `node_path`      | Override the global `node_path` for this browser                | `null`     |
+| `screenshot_dir` | Default directory where page screenshots are saved              | `null`     |
 
 ### `assets`
 

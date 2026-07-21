@@ -17,8 +17,10 @@ namespace Playwright\Symfony\DependencyInjection;
 use Playwright\Browser\BrowserContextInterface;
 use Playwright\Browser\BrowserType;
 use Playwright\Configuration\PlaywrightConfig;
-use Playwright\Playwright;
+use Playwright\PlaywrightClient;
+use Playwright\PlaywrightFactory;
 use Playwright\Symfony\BrowserKit\PlaywrightClient as BrowserKitClient;
+use Psr\Log\NullLogger;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -31,6 +33,10 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 final class PlaywrightExtension extends Extension
 {
+    /** @var list<PlaywrightClient> */
+    private static array $clients = [];
+    private static bool $shutdownRegistered = false;
+
     /**
      * When "playwright.enabled" is false, no service and no parameter is registered:
      * services.php references playwright.* parameters that are only set below, so
@@ -63,8 +69,8 @@ final class PlaywrightExtension extends Extension
         /** @var array<string, mixed> $browsersConfig */
         $defaultBrowser = $config['default_browser'] ?? 'default';
         \assert(is_string($defaultBrowser));
-        $globalNodePath = $config['node_path'] ?? 'node';
-        \assert(is_string($globalNodePath));
+        $globalNodePath = $config['node_path'] ?? null;
+        \assert(null === $globalNodePath || is_string($globalNodePath));
         $this->registerBrowsers($container, $browsersConfig, $defaultBrowser, $globalNodePath);
 
         $container->register(BrowserKitClient::class, BrowserKitClient::class)
@@ -83,7 +89,7 @@ final class PlaywrightExtension extends Extension
     /**
      * @param array<string, mixed> $browsersConfig
      */
-    private function registerBrowsers(ContainerBuilder $container, array $browsersConfig, string $defaultBrowser, string $globalNodePath): void
+    private function registerBrowsers(ContainerBuilder $container, array $browsersConfig, string $defaultBrowser, ?string $globalNodePath): void
     {
         if (!isset($browsersConfig[$defaultBrowser])) {
             $browsersConfig[$defaultBrowser] = [];
@@ -108,10 +114,8 @@ final class PlaywrightExtension extends Extension
 
             $browserContextDef = new Definition(BrowserContextInterface::class);
             $browserContextDef->setFactory([self::class, 'createBrowserContext']);
-            $browserType = $cfg['type'] ?? 'chromium';
             $browserContextDef->setArguments([
                 new Reference($serviceId.'.config'),
-                is_string($browserType) ? $browserType : 'chromium',
             ]);
 
             $container->setDefinition($serviceId, $browserContextDef);
@@ -127,16 +131,16 @@ final class PlaywrightExtension extends Extension
     }
 
     /**
+     * Maps the bundle browser options onto named PlaywrightConfig constructor
+     * arguments. Only options actually consumed by the library are mapped; the
+     * configuration tree rejects the others.
+     *
      * @param array<string, mixed> $cfg
      *
-     * @return array<int, mixed>
+     * @return array<string, mixed>
      */
-    private function mapBrowserConfigArgs(array $cfg, string $globalNodePath): array
+    private function mapBrowserConfigArgs(array $cfg, ?string $globalNodePath): array
     {
-        // PlaywrightConfig constructor signature:
-        // (nodePath, minNodeVersion, browser, channel, headless, timeoutMs, slowMoMs, args, env,
-        //  downloadsDir, videosDir, screenshotDir, tracingEnabled, traceDir, traceScreenshots, traceSnapshots, proxy, logger)
-
         $browserType = $cfg['type'] ?? 'chromium';
         $browserMap = [
             'chromium' => BrowserType::CHROMIUM,
@@ -146,36 +150,16 @@ final class PlaywrightExtension extends Extension
         $browserTypeKey = is_string($browserType) ? $browserType : 'chromium';
         $browserEnum = $browserMap[$browserTypeKey] ?? BrowserType::CHROMIUM;
 
-        $tracing = is_array($cfg['tracing'] ?? null) ? $cfg['tracing'] : [];
-        $proxy = is_array($cfg['proxy'] ?? null) ? $cfg['proxy'] : null;
-
-        $args = [
-            $cfg['node_path'] ?? $globalNodePath,
-            $cfg['min_node_version'] ?? '18.0.0',
-            $browserEnum,
-            $cfg['channel'] ?? null,
-            $cfg['headless'] ?? true,
-            $cfg['timeout_ms'] ?? 30000,
-            $cfg['slowmo_ms'] ?? 0,
-            $cfg['args'] ?? [],
-            $cfg['env'] ?? [],
-            $cfg['downloads_dir'] ?? null,
-            $cfg['videos_dir'] ?? null,
-            $cfg['screenshot_dir'] ?? null,
-            $tracing['enabled'] ?? false,
-            $tracing['dir'] ?? null,
-            $tracing['screenshots'] ?? false,
-            $tracing['snapshots'] ?? false,
-            null !== $proxy ? array_filter([
-                'server' => $proxy['server'] ?? null,
-                'username' => $proxy['username'] ?? null,
-                'password' => $proxy['password'] ?? null,
-                'bypass' => $proxy['bypass'] ?? null,
-            ], static fn ($v) => null !== $v && '' !== $v) : null,
-            null, // logger is injected by factory argument, not here
+        return [
+            '$nodePath' => $cfg['node_path'] ?? $globalNodePath,
+            '$browser' => $browserEnum,
+            '$headless' => $cfg['headless'] ?? true,
+            '$timeoutMs' => $cfg['timeout_ms'] ?? 30000,
+            '$slowMoMs' => $cfg['slowmo_ms'] ?? 0,
+            '$args' => $cfg['args'] ?? [],
+            '$env' => $cfg['env'] ?? [],
+            '$screenshotDir' => $cfg['screenshot_dir'] ?? null,
         ];
-
-        return $args;
     }
 
     private function registerAutowiredBrowserAlias(ContainerBuilder $container, string $browserName, string $serviceId): void
@@ -185,22 +169,49 @@ final class PlaywrightExtension extends Extension
         $container->registerAliasForArgument($serviceId, BrowserContextInterface::class, $parameterName);
     }
 
-    public static function createBrowserContext(PlaywrightConfig $config, string $browserType): BrowserContextInterface
+    /**
+     * DI factory for browser context services.
+     *
+     * The whole PlaywrightConfig flows into the library: node_path, env and
+     * timeout_ms reach the Node.js server transport, headless, slowmo_ms and
+     * args reach the browser launch, screenshot_dir is used at runtime.
+     */
+    public static function createBrowserContext(PlaywrightConfig $config): BrowserContextInterface
     {
-        $launchOptions = [
-            'headless' => $config->headless,
-            'args' => $config->args,
-            'slowMo' => $config->slowMoMs,
-            'timeout' => $config->timeoutMs,
-        ];
+        $client = PlaywrightFactory::create($config, $config->logger ?? new NullLogger());
+        self::registerClientForShutdown($client);
 
-        $launchOptions = array_filter($launchOptions, static fn (mixed $value): bool => [] !== $value);
-
-        return match ($browserType) {
-            'firefox' => Playwright::firefox($launchOptions),
-            'webkit' => Playwright::webkit($launchOptions),
-            default => Playwright::chromium($launchOptions),
+        $builder = match ($config->browser) {
+            BrowserType::FIREFOX => $client->firefox(),
+            BrowserType::WEBKIT => $client->webkit(),
+            default => $client->chromium(),
         };
+
+        return $builder->launch()->context();
+    }
+
+    /**
+     * Keeps clients referenced until PHP shutdown: a garbage-collected client
+     * disconnects its transport, which the browser context still uses.
+     */
+    private static function registerClientForShutdown(PlaywrightClient $client): void
+    {
+        self::$clients[] = $client;
+
+        if (self::$shutdownRegistered) {
+            return;
+        }
+        self::$shutdownRegistered = true;
+
+        register_shutdown_function(static function (): void {
+            foreach (self::$clients as $client) {
+                try {
+                    $client->close();
+                } catch (\Throwable) {
+                }
+            }
+            self::$clients = [];
+        });
     }
 
     private function convertNameToCamelCase(string $name): string
