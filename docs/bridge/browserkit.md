@@ -19,8 +19,7 @@ snapshots after each action.
 use Playwright\Symfony\BrowserKit\PlaywrightClient;
 use Playwright\Playwright;
 
-$pw = Playwright::chromium()->launch();
-$context = $pw->newContext();
+$context = Playwright::chromium();
 
 $client = PlaywrightClient::fromContext($context);
 
@@ -73,4 +72,3 @@ without manual wiring.
 
 - Track last main-frame navigation Response reliably via a small network tracker on Page.
 - Add a PHPUnit trait for automatic artifacts (screenshot, HTML) on failure.
-- Provide a Symfony Bundle for DI/autowiring in test env.

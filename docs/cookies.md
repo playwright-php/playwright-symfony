@@ -361,8 +361,8 @@ $context->addCookies(array $cookies);
 // Get cookies
 $cookies = $context->cookies(?array $urls = null);
 
-// Delete cookie
-$context->deleteCookie(string $name, string $domain, string $path);
+// Delete all cookies with the given name (across domain and path variants)
+$context->deleteCookie(string $name);
 
 // Clear all
 $context->clearCookies();
@@ -381,8 +381,7 @@ $context->clearCookies();
 
 ## See Also
 
-- [Cookie Fix Investigation](troubleshooting/cookie-fix-investigation.md) - Detailed debugging process
-- [Testing Guide](testing.md) - General testing documentation
+- [Helper & Assertion Reference](helpers.md) - Cookie helper methods on `PlaywrightTestCase`
 - [Playwright Cookie API](https://playwright.dev/docs/api/class-browsercontext#browser-context-add-cookies) - Upstream
   documentation
 

@@ -66,7 +66,7 @@ These check the response returned by the Symfony Kernel during the last intercep
 You can take screenshots at any point during your test:
 
 ```php
-$this->page->screenshot(['path' => 'var/screenshots/test.png']);
+$this->page->screenshot('var/screenshots/test.png');
 ```
 
 Or use the helper:

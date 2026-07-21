@@ -6,7 +6,7 @@
 
 **E2E testing for Symfony with real browsers and in-process request handling.**
 
-Run Playwright browser tests while intercepting HTTP requests and routing them through your Symfony kernel in the same PHP process—giving you full access to services, the profiler, and application state.
+Run Playwright browser tests while intercepting HTTP requests and routing them through your Symfony kernel in the same PHP process, giving you full access to services, the profiler, and application state.
 
 > [!IMPORTANT]
 > **Alpha Status**
@@ -151,12 +151,12 @@ PLAYWRIGHT_E2E=1 PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
 
 ## Usage Notes
 
-- `PlaywrightTestCase` drives a real browser. Calling `request()` (the traditional BrowserKit API) on the underlying client will throw—always navigate with `visit()`/Playwright APIs instead. If you need classic BrowserKit semantics, autowire [`Playwright\Symfony\BrowserKit\PlaywrightClient`](docs/bridge/browserkit.md) from the container; it reuses the bundle’s Playwright context.
+- `PlaywrightTestCase` drives a real browser. Calling `request()` (the traditional BrowserKit API) on the underlying client performs a plain GET navigation: POST requests, parameters and request bodies are not routed through the kernel yet. Always prefer `visit()` and the Playwright Page API. If you need classic BrowserKit semantics against real HTTP, use [`Playwright\Symfony\BrowserKit\PlaywrightClient`](docs/bridge/browserkit.md) from the container; it reuses the bundle's Playwright context.
 - Set `PLAYWRIGHT_BASE_URL` (or the `playwright.base_url` config) to match the hostnames you intercept; this also controls which cookies are set when calling helper methods like `authenticate()`.
 
 ## Asset Dev Server
 
-Static files (including AssetMapper output) are served by the in-process `AssetServer`, so requests under `/assets`, `/build`, and other configured prefixes never touch the kernel. Customize prefixes, additional `public_roots`, and cache behavior via `playwright.assets`—see [`docs/ASSET_DEV_SERVER.md`](docs/asset-dev-server.md) for a full walkthrough and troubleshooting tips.
+Static files (including AssetMapper output) are served by the in-process `AssetServer`, so requests under `/assets`, `/build`, and other configured prefixes never touch the kernel. Customize prefixes, additional `public_roots`, and cache behavior via `playwright.assets`: see [`docs/asset-dev-server.md`](docs/asset-dev-server.md) for a full walkthrough and troubleshooting tips.
 
 ## Common Scenarios
 
@@ -370,7 +370,7 @@ jobs:
           php-version: '8.3'
 
       - run: composer install
-      - run: npx playwright install chromium --with-deps
+      - run: vendor/bin/playwright-install --with-deps
 
       - name: Run E2E tests
         run: vendor/bin/phpunit tests/E2E
@@ -407,7 +407,7 @@ jobs:
 
 - PHP 8.3+
 - Symfony 7.0+ or 8.0+
-- Node.js 18+
+- Node.js 20+
 - Playwright browsers
 
 ## Contributing

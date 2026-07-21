@@ -68,13 +68,31 @@ playwright:
       headless: false
 ```
 
-In your test:
+Each named browser is exposed as a named autowiring alias for `BrowserContextInterface`. Inject it
+in any autowired service by naming the constructor argument after the browser (camelCase):
 
 ```php
-public function testWithFirefox(\Playwright\Browser\BrowserContextInterface $firefoxDebug): void
+// src/Testing/FirefoxSmokeChecker.php
+use Playwright\Browser\BrowserContextInterface;
+
+final class FirefoxSmokeChecker
 {
-    $page = $firefoxDebug->newPage();
-    $page->goto('http://localhost/');
-    // ...
+    public function __construct(
+        private BrowserContextInterface $firefoxDebug,
+    ) {
+    }
+
+    public function check(string $url): string
+    {
+        $page = $this->firefoxDebug->newPage();
+        $page->goto($url);
+
+        return $page->title();
+    }
 }
 ```
+
+> **Note**
+> PHPUnit does not autowire test method arguments: type-hinted parameters on a test method are
+> treated as data provider values, not services. Inject named browsers into services, not into
+> test methods.

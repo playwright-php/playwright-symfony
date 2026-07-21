@@ -5,7 +5,7 @@ official action to set up the environment.
 
 ## GitHub Actions
 
-The easiest way to set up Playwright in your GitHub workflows is by using the `playwright-php/setup-playwright-php`
+The easiest way to set up Playwright in your GitHub workflows is by using the `playwright-php/setup-playwright`
 action.
 
 ```yaml
@@ -28,7 +28,7 @@ jobs:
         run: composer install --prefer-dist
 
       - name: Setup Playwright PHP
-        uses: playwright-php/setup-playwright-php@v1
+        uses: playwright-php/setup-playwright@v1
         with:
           browsers: chromium # Optional: chromium, firefox, webkit (default: all)
 

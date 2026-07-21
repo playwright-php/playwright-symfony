@@ -389,20 +389,23 @@ public function testAdminWorkflow(): void
 
 ### Custom Authentication
 
-If you need more control over authentication, override `beforeRequest()`:
+If you need more control over authentication, override `beforeRequest()`. The method must stay
+`public` (it is declared `public` in `PlaywrightTestCase`):
 
 ```php
-protected function beforeRequest(SymfonyRequest $request): void
+public function beforeRequest(SymfonyRequest $request): void
 {
-    // Set up session data
-    $session = $request->getSession();
-    $session->set('user_id', 123);
-    $session->set('roles', ['ROLE_USER']);
-
-    // Or modify headers
+    // Modify headers before the kernel handles the request
     $request->headers->set('Authorization', 'Bearer token123');
+
+    // Or add cookies the firewall can read
+    $request->cookies->set('AUTH', 'admin-token');
 }
 ```
+
+> **Note**
+> The request has no session at this stage: the session is started later by the kernel while
+> handling the request. Calling `$request->getSession()` here throws `SessionNotFoundException`.
 
 ## Request/Response Introspection
 
@@ -474,24 +477,19 @@ Override this method to customize requests before they reach the kernel.
 **Use Cases:**
 
 - Modify request headers
-- Set session data
 - Add authentication tokens
 - Change locale
 
 **Example:**
 
 ```php
-protected function beforeRequest(SymfonyRequest $request): void
+public function beforeRequest(SymfonyRequest $request): void
 {
     // Add custom header to all requests
     $request->headers->set('X-Test-Mode', 'true');
 
     // Set locale
     $request->setLocale('fr');
-
-    // Add authentication
-    $session = $request->getSession();
-    $session->set('user_id', 123);
 }
 ```
 
@@ -511,7 +509,7 @@ Override this method to inspect or modify responses after the kernel returns the
 **Example:**
 
 ```php
-protected function afterResponse(SymfonyResponse $response): void
+public function afterResponse(SymfonyResponse $response): void
 {
     // Assert all responses have security headers
     $this->assertTrue($response->headers->has('X-Frame-Options'));
@@ -637,13 +635,13 @@ class OrderFlowTest extends PlaywrightTestCase
         $em->flush();
     }
 
-    protected function beforeRequest(SymfonyRequest $request): void
+    public function beforeRequest(SymfonyRequest $request): void
     {
         // Add test header to all requests
         $request->headers->set('X-Test-Run', 'e2e');
     }
 
-    protected function afterResponse(SymfonyResponse $response): void
+    public function afterResponse(SymfonyResponse $response): void
     {
         // Ensure no errors in responses
         $this->assertLessThan(400, $response->getStatusCode());
