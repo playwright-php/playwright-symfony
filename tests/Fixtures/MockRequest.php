@@ -33,6 +33,7 @@ final readonly class MockRequest implements RequestInterface
         private array $headers = [],
         private ?string $postData = null,
         private string $resourceType = 'document',
+        private ?string $postDataBuffer = null,
     ) {
     }
 
@@ -144,7 +145,7 @@ final readonly class MockRequest implements RequestInterface
 
     public function postDataBuffer(): ?string
     {
-        return $this->postData;
+        return $this->postDataBuffer ?? $this->postData;
     }
 
     public function failure(): ?array
