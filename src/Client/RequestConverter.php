@@ -37,6 +37,9 @@ class RequestConverter
         $method = $playwrightRequest->method();
         $headers = $playwrightRequest->headers();
         $postData = $playwrightRequest->postData();
+        if (null === $postData) {
+            $postData = $playwrightRequest->postDataBuffer();
+        }
 
         $parameters = [];
         $cookies = [];
