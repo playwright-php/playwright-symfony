@@ -22,6 +22,7 @@ use Playwright\Symfony\Util\FormInteractor;
 use Playwright\Symfony\Util\XPathHelper;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Bundle\FrameworkBundle\Test\TestBrowserToken;
 use Symfony\Component\BrowserKit\AbstractBrowser;
 use Symfony\Component\BrowserKit\Request as BrowserKitRequest;
 use Symfony\Component\BrowserKit\Response as BrowserKitResponse;
@@ -32,11 +33,15 @@ use Symfony\Component\DomCrawler\Link;
 use Symfony\Component\DomCrawler\UriResolver;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Symfony\Component\HttpFoundation\Session\SessionFactoryInterface;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\HttpKernel\Profiler\Profile;
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Component\HttpKernel\TerminableInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
  * Internal BrowserKit client that intercepts browser requests and routes them through Symfony's HttpKernel.
@@ -80,7 +85,7 @@ use Symfony\Component\HttpKernel\TerminableInterface;
  *
  * @final
  *
- * @extends AbstractBrowser<BrowserKitRequest, BrowserKitResponse>
+ * @extends AbstractBrowser<object, object>
  *
  * @author Simon André <smn.andre@gmail.com>
  */
@@ -331,6 +336,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         }
 
         $context->addCookies([$cookie]);
+        CookieJarSync::toJarFromUrl($this->getCookieJar(), $context, $this->getBaseUrl());
     }
 
     public function getCookie(string $name, ?string $url = null): ?string
@@ -352,6 +358,7 @@ class PlaywrightKernelClient extends AbstractBrowser
     public function clearCookies(): void
     {
         $this->browser->getContext()?->clearCookies();
+        $this->getCookieJar()->clear();
     }
 
     public function clearCookie(string $name, ?string $domain = null, string $path = '/'): void
@@ -376,6 +383,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         $options['expires'] = 0;
 
         $this->setCookie($name, '', $options);
+        $this->getCookieJar()->expire($name, $path, $domain);
     }
 
     /**
@@ -387,14 +395,115 @@ class PlaywrightKernelClient extends AbstractBrowser
         $this->setCookie('AUTH', $payload);
     }
 
-    public function logout(): void
+    /**
+     * @param array<string, mixed> $tokenAttributes
+     *
+     * @return $this
+     */
+    public function loginUser(object $user, string $firewallContext = 'main', array $tokenAttributes = []): static
+    {
+        $container = $this->getContainer();
+        if (null === $container) {
+            throw new \LogicException(sprintf('"%s" requires a Symfony KernelInterface instance.', __METHOD__));
+        }
+
+        if (!$container->has('security.untracked_token_storage')) {
+            throw new \LogicException('The SecurityBundle is not registered in your application. Try running "composer require symfony/security-bundle".');
+        }
+
+        if (!$user instanceof UserInterface) {
+            throw new \LogicException(sprintf('The first argument of "%s" must be an instance of "%s", "%s" provided.', __METHOD__, UserInterface::class, get_debug_type($user)));
+        }
+
+        $token = new TestBrowserToken($user->getRoles(), $user, $firewallContext);
+        $token->setAttributes($tokenAttributes);
+
+        $tokenStorage = $container->get('security.untracked_token_storage');
+        if (!$tokenStorage instanceof TokenStorageInterface) {
+            throw new \LogicException(sprintf('The "security.untracked_token_storage" service must implement "%s".', TokenStorageInterface::class));
+        }
+        $tokenStorage->setToken($token);
+
+        $session = $this->getSession();
+        if (null === $session) {
+            return $this;
+        }
+
+        try {
+            $session->set('_security_'.$firewallContext, serialize($token));
+        } catch (\Throwable $e) {
+            throw new \LogicException(sprintf('Cannot store the security token in the session: the user object of class "%s" is not serializable.', $user::class), 0, $e);
+        }
+
+        $session->save();
+        $this->setCookie($session->getName(), $session->getId(), ['httpOnly' => true]);
+
+        return $this;
+    }
+
+    public function logout(string $firewallContext = 'main'): static
     {
         $this->clearCookie('AUTH');
+
+        $container = $this->getContainer();
+        if (null === $container) {
+            return $this;
+        }
+
+        if ($container->has('security.untracked_token_storage')) {
+            $tokenStorage = $container->get('security.untracked_token_storage');
+            if ($tokenStorage instanceof TokenStorageInterface) {
+                $tokenStorage->setToken(null);
+            }
+        }
+
+        $session = $this->getSession();
+        if (null === $session) {
+            return $this;
+        }
+
+        $session->remove('_security_'.$firewallContext);
+        $session->save();
+        $this->clearCookie($session->getName());
+
+        return $this;
+    }
+
+    public function getSession(): ?SessionInterface
+    {
+        $container = $this->getContainer();
+        if (null === $container) {
+            return null;
+        }
+
+        if (!$container->has('session.factory')) {
+            return null;
+        }
+
+        $sessionFactory = $container->get('session.factory');
+        if (!$sessionFactory instanceof SessionFactoryInterface) {
+            throw new \LogicException(sprintf('The "session.factory" service must implement "%s".', SessionFactoryInterface::class));
+        }
+
+        $session = $sessionFactory->createSession();
+
+        if (null !== $sessionId = $this->getCookie($session->getName())) {
+            $session->setId($sessionId);
+        }
+
+        $session->start();
+
+        return $session;
     }
 
     public function getLastSymfonyRequest(): ?SymfonyRequest
     {
         return $this->lastSymfonyRequest;
+    }
+
+    public function getRequest(): object
+    {
+        return $this->lastSymfonyRequest ?? parent::getRequest();
     }
 
     public function getLastSymfonyResponse(): ?SymfonyResponse
@@ -431,6 +540,11 @@ class PlaywrightKernelClient extends AbstractBrowser
     public function enableProfiler(): void
     {
         $this->profileNextRequest = true;
+    }
+
+    public function getResponse(): object
+    {
+        return $this->lastSymfonyResponse ?? parent::getResponse();
     }
 
     public function getProfile(): ?Profile

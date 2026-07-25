@@ -2,25 +2,44 @@
 
 ## Authentication
 
-The `PlaywrightClient` provides a simple way to authenticate users in your tests.
+`PlaywrightTestCase::loginUser()` uses Symfony's real firewall and matches the signature of
+`KernelBrowser::loginUser()`. SecurityBundle is optional for the package, but must be installed and enabled before
+calling this helper. Otherwise, `loginUser()` throws a `LogicException` with the command to install it:
 
-### Using the Helper
+```bash
+composer require symfony/security-bundle
+```
+
+### Using the Symfony Firewall
 
 ```php
+use App\Repository\UserRepository;
+
 public function testAuthenticatedPage(): void
 {
-    // Authenticates the user (sets an AUTH cookie)
-    $this->authenticate('user@example.com', ['roles' => ['ROLE_ADMIN']]);
+    $user = static::getContainer()
+        ->get(UserRepository::class)
+        ->findOneBy(['email' => 'user@example.com']);
+    self::assertNotNull($user);
+
+    $this->loginUser($user);
 
     $this->visit('/admin');
-    $this->assertResponseIsSuccessful();
+    self::assertResponseIsSuccessful();
 }
 ```
+
+For session-backed firewalls, the user must be serializable. The security token and session cookie are synchronized
+with the intercepted browser request. If sessions are unavailable, the token remains in Symfony's untracked token
+storage and no session cookie is created, matching the standard Symfony test client.
+
+The older `authenticate()` helper remains available for applications that deliberately consume its custom JSON
+`AUTH` cookie. It does not authenticate against Symfony Security by itself.
 
 ### Logging Out
 
 ```php
-$this->logout();
+$this->logout('main');
 $this->visit('/admin');
 $this->assertResponseStatusCode(403);
 ```

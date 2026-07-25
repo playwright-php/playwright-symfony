@@ -36,6 +36,13 @@ composer require --dev playwright-php/playwright-symfony
 - Symfony 7.0+ or 8.0+
 - Node.js 20+ (for Playwright browser communication)
 
+Authentication through a real Symfony firewall is optional. The rest of the package works without SecurityBundle.
+Calling `loginUser()` without it throws a `LogicException` containing the installation command:
+
+```bash
+composer require symfony/security-bundle
+```
+
 **Install Playwright:**
 
 The bundle includes a helper to set up the Playwright environment and download browsers:
@@ -151,6 +158,9 @@ PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
 
 ## Usage Notes
 
+- `PlaywrightTestCase` extends Symfony's `WebTestCase`. Its intercepted client is registered with the inherited
+  assertion layer, so helpers such as `assertResponseIsSuccessful()`, `assertRouteSame()`, and
+  `assertSelectorExists()` work against the latest intercepted request, response, and browser page.
 - `PlaywrightTestCase` drives a real browser. Calling `request()` (the traditional BrowserKit API) on the underlying client performs a plain GET navigation: POST requests, parameters and request bodies are not routed through the kernel yet. Always prefer `visit()` and the Playwright Page API. If you need classic BrowserKit semantics against real HTTP, use [`Playwright\Symfony\BrowserKit\PlaywrightClient`](docs/bridge/browserkit.md) from the container; it reuses the bundle's Playwright context.
 - Set `PLAYWRIGHT_BASE_URL` (or the `playwright.base_url` config) to match the hostnames you intercept; this also controls which cookies are set when calling helper methods like `authenticate()`.
 
@@ -163,10 +173,16 @@ Static files (including AssetMapper output) are served by the in-process `AssetS
 ### Authentication & Cookies
 
 ```php
+use App\Repository\UserRepository;
+
 public function testAdminAccess(): void
 {
-    // Set authentication cookie
-    $this->authenticate('admin@example.com', ['roles' => ['ROLE_ADMIN']]);
+    $user = static::getContainer()
+        ->get(UserRepository::class)
+        ->findOneBy(['email' => 'admin@example.com']);
+    self::assertNotNull($user);
+
+    $this->loginUser($user);
 
     $page = $this->visit('/admin');
     $this->assertPageContains('Admin Dashboard');
@@ -235,7 +251,9 @@ The bundle provides many helpers for common testing scenarios:
 | Helper | Purpose |
 |--------|---------|
 | `visit($path)` | Navigate to a path and return the Playwright Page |
-| `authenticate($user, $context)` | Set authentication cookie |
+| `loginUser($user, $firewallContext, $tokenAttributes)` | Authenticate with Symfony's real firewall |
+| `authenticate($identifier, $context)` | Set the legacy custom `AUTH` cookie |
+| `logout($firewallContext)` | Clear custom and Symfony firewall authentication |
 | `setCookie($name, $value)` | Set a cookie in the browser |
 | `getLastRequest()` | Access the intercepted Symfony Request |
 | `getLastResponse()` | Access the intercepted Symfony Response |

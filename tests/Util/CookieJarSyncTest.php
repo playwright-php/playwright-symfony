@@ -98,4 +98,23 @@ final class CookieJarSyncTest extends TestCase
         $this->assertNotNull($jar->get('site'));
         $this->assertSame('main', $jar->get('site')->getValue());
     }
+
+    public function testPlaywrightSessionCookieRemainsValidInBrowserKitJar(): void
+    {
+        $context = new FakeBrowserContext();
+        $context->addCookies([
+            [
+                'name' => 'session',
+                'value' => 'session-id',
+                'domain' => 'localhost',
+                'path' => '/',
+                'expires' => -1,
+            ],
+        ]);
+
+        $jar = new CookieJar();
+        CookieJarSync::toJarFromUrl($jar, $context, 'http://localhost/');
+
+        $this->assertSame('session-id', $jar->get('session')?->getValue());
+    }
 }

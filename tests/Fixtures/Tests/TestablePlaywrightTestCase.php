@@ -183,9 +183,17 @@ class TestablePlaywrightTestCase extends PlaywrightTestCase
         $this->authenticate($identifier, $context);
     }
 
-    public function publicLogout(): void
+    public function publicLogout(string $firewallContext = 'main'): static
     {
-        $this->logout();
+        return $this->logout($firewallContext);
+    }
+
+    /**
+     * @param array<string, mixed> $tokenAttributes
+     */
+    public function publicLoginUser(object $user, string $firewallContext = 'main', array $tokenAttributes = []): static
+    {
+        return $this->loginUser($user, $firewallContext, $tokenAttributes);
     }
 
     public function publicGetLastRequest(): ?SymfonyRequest

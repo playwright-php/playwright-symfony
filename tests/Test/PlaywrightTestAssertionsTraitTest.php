@@ -55,34 +55,6 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         $this->assertPageNotContains('Missing Text');
     }
 
-    public function testAssertSelectorExistsUsesLocator(): void
-    {
-        $this->page = $this->createMock(PageInterface::class);
-        $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('count')->willReturn(1);
-
-        $this->page->expects($this->once())
-            ->method('locator')
-            ->with('#main')
-            ->willReturn($locator);
-
-        $this->assertSelectorExists('#main');
-    }
-
-    public function testAssertSelectorNotExistsUsesLocator(): void
-    {
-        $this->page = $this->createMock(PageInterface::class);
-        $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('count')->willReturn(0);
-
-        $this->page->expects($this->once())
-            ->method('locator')
-            ->with('.missing')
-            ->willReturn($locator);
-
-        $this->assertSelectorNotExists('.missing');
-    }
-
     public function testAssertSelectorVisible(): void
     {
         $this->page = $this->createMock(PageInterface::class);
@@ -111,30 +83,10 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         $this->assertSelectorHidden('.hidden');
     }
 
-    public function testAssertSelectorTextContains(): void
-    {
-        $this->page = $this->createMock(PageInterface::class);
-        $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('textContent')->willReturn('The Quick Brown Fox');
-
-        $this->page->expects($this->once())
-            ->method('locator')
-            ->with('.text')
-            ->willReturn($locator);
-
-        $this->assertSelectorTextContains('.text', 'Brown Fox');
-    }
-
     public function testAssertResponseStatusCode(): void
     {
         $this->response = new Response('', 201);
         $this->assertResponseStatusCode(201);
-    }
-
-    public function testAssertResponseIsSuccessful(): void
-    {
-        $this->response = new Response('', 200);
-        $this->assertResponseIsSuccessful();
     }
 
     public function testAssertResponseIsRedirect(): void
