@@ -65,10 +65,12 @@ final class CookieJarSync
 
     /**
      * Playwright reports "expires" as a number: -1 for session cookies, a Unix
-     * timestamp (possibly float) otherwise. BrowserKit expects string|int|null,
-     * and treats any past timestamp as expired, so negatives must map to null.
+     * timestamp (possibly float) otherwise. BrowserKit only accepts an int since
+     * 8.1; before that the parameter is ?string, parsed with createFromFormat('U'),
+     * so a numeric string is what satisfies every supported version. Past
+     * timestamps count as expired, so negatives must map to null.
      */
-    private static function normalizeExpires(mixed $expires): ?int
+    private static function normalizeExpires(mixed $expires): ?string
     {
         if (!is_numeric($expires)) {
             return null;
@@ -76,7 +78,7 @@ final class CookieJarSync
 
         $timestamp = (int) $expires;
 
-        return $timestamp < 0 ? null : $timestamp;
+        return $timestamp < 0 ? null : (string) $timestamp;
     }
 
     private static function toString(mixed $value): string
