@@ -68,6 +68,6 @@ final class CompleteIntegrationFlowTest extends PlaywrightTestCase
         // Phase 8: Logout and verify authentication is required
         $this->logout();
         $this->visit('/login');
-        $this->assertPageContains('Login Required');
+        $this->assertPageContains('Authentication Required');
     }
 }
