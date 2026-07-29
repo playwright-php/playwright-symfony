@@ -69,3 +69,37 @@ jobs:
 
       - name: "PHPUnit: tests"
         run: phpunit --testsuite=unit
+
+  e2e-tests:
+    name: "E2E Tests (PHP ${{ matrix.php-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-version: ['8.4']
+      fail-fast: false
+    env:
+      PLAYWRIGHT_E2E: '1'
+    steps:
+      - name: "Git: checkout"
+        uses: actions/checkout@v4
+
+      - name: "PHP: setup ${{ matrix.php-version }}"
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: phpunit
+
+      - name: "Playwright: install browsers"
+        uses: playwright-php/setup-playwright@v1
+        with:
+          browsers: chromium
+
+      - name: "Composer: install"
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: "PHPUnit: functional"
+        run: phpunit --testsuite=functional
+
+      - name: "PHPUnit: integration"
+        run: phpunit --testsuite=integration
