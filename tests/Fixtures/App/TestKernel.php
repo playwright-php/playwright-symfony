@@ -50,7 +50,7 @@ class TestKernel extends BaseKernel
                 'storage_factory_id' => 'session.storage.factory.mock_file',
             ],
             'cache' => [
-                'directory' => __DIR__.'/var/playwright-symfony-test-cache',
+                'directory' => $this->tempDir('pools'),
                 'app' => 'cache.adapter.filesystem',
                 'pools' => [
                     'cache.asset_mapper' => [
@@ -216,16 +216,32 @@ class TestKernel extends BaseKernel
 
     public function getCacheDir(): string
     {
-        return __DIR__.'/var/playwright-symfony-test-cache/'.$this->environment;
+        return $this->tempDir('cache');
     }
 
     public function getLogDir(): string
     {
-        return __DIR__.'/var/playwright-symfony-test-logs/'.$this->environment;
+        return $this->tempDir('logs');
     }
 
     public function getBuildDir(): string
     {
-        return __DIR__.'/var/playwright-symfony-test-build/'.$this->environment;
+        return $this->tempDir('build');
+    }
+
+    /**
+     * Compiled containers belong in the system temp directory, not in the
+     * repository. The path is keyed on this checkout so several working copies
+     * of the bundle never share an incompatible compiled container.
+     */
+    private function tempDir(string $name): string
+    {
+        return sprintf(
+            '%s/playwright-symfony-test-%s/%s/%s',
+            sys_get_temp_dir(),
+            substr(hash('xxh128', __DIR__), 0, 8),
+            $name,
+            $this->environment,
+        );
     }
 }
