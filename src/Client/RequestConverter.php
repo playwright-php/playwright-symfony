@@ -45,6 +45,7 @@ class RequestConverter
         $cookies = [];
         $files = [];
         $server = [
+            'REMOTE_ADDR' => '127.0.0.1',
             'REQUEST_METHOD' => $method,
             'REQUEST_URI' => ($url['path'] ?? '/').(isset($url['query']) ? '?'.$url['query'] : ''),
             'SERVER_NAME' => $url['host'] ?? 'localhost',
