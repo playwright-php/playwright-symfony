@@ -305,7 +305,15 @@ class RequestConverter
             $ref = &$ref[$segment];
         }
 
-        if ('' === $last || ctype_digit($last)) {
+        // "name[]" appends: assigning (int) '' === 0 would make every repeated part
+        // overwrite the first one, keeping only the last value.
+        if ('' === $last) {
+            $ref[] = $value;
+
+            return;
+        }
+
+        if (ctype_digit($last)) {
             $last = (int) $last;
         }
         $ref[$last] = $value;
