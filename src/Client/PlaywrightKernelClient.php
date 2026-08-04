@@ -461,7 +461,7 @@ class PlaywrightKernelClient extends AbstractBrowser
 
             $response = $this->handleInternalRequest($request);
             if (method_exists($route, 'fulfill')) {
-                $route->fulfill($this->responseConverter->prepareFulfillOptions($response));
+                $route->fulfill($this->responseConverter->prepareFulfillOptions($response, 'document' === $request->resourceType()));
             }
         });
     }
