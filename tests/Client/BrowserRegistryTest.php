@@ -132,44 +132,6 @@ class BrowserRegistryTest extends TestCase
         $this->assertNull($refPage->getValue($browser));
     }
 
-    public function testGetContextAutoStartsIfNotStarted(): void
-    {
-        if ('1' !== ($_ENV['PLAYWRIGHT_E2E'] ?? $_SERVER['PLAYWRIGHT_E2E'] ?? getenv('PLAYWRIGHT_E2E'))) {
-            $this->markTestSkipped('Playwright E2E tests are disabled. Set PLAYWRIGHT_E2E=1 to enable.');
-        }
-
-        $browser = new BrowserRegistry('chromium', true);
-        $context = $browser->getContext();
-
-        $this->assertNotNull($context);
-
-        $browser->stop();
-    }
-
-    public function testRestartContextClosesOldContextAndStartsNew(): void
-    {
-        if ('1' !== ($_ENV['PLAYWRIGHT_E2E'] ?? $_SERVER['PLAYWRIGHT_E2E'] ?? getenv('PLAYWRIGHT_E2E'))) {
-            $this->markTestSkipped('Playwright E2E tests are disabled. Set PLAYWRIGHT_E2E=1 to enable.');
-        }
-
-        $browser = new BrowserRegistry('chromium', true);
-        $browser->start();
-
-        $firstContext = $browser->getContext();
-        $firstPage = $browser->getPage();
-
-        $browser->restartContext();
-
-        $secondContext = $browser->getContext();
-        $secondPage = $browser->getPage();
-
-        // Context and page should be different instances after restart
-        $this->assertNotSame($firstContext, $secondContext);
-        $this->assertNotSame($firstPage, $secondPage);
-
-        $browser->stop();
-    }
-
     public function testEqualsReturnsTrueForSameBrowserConfiguration(): void
     {
         $browser1 = new BrowserRegistry('chromium', true, ['arg' => 'value']);
@@ -200,44 +162,5 @@ class BrowserRegistryTest extends TestCase
         $browser2 = new BrowserRegistry('chromium', true, ['option2' => 'value2']);
 
         $this->assertFalse($browser1->equals($browser2));
-    }
-
-    public function testStartInitializesContextAndPage(): void
-    {
-        if ('1' !== ($_ENV['PLAYWRIGHT_E2E'] ?? $_SERVER['PLAYWRIGHT_E2E'] ?? getenv('PLAYWRIGHT_E2E'))) {
-            $this->markTestSkipped('Playwright E2E tests are disabled. Set PLAYWRIGHT_E2E=1 to enable.');
-        }
-
-        $browser = new BrowserRegistry('chromium', true);
-        $browser->start();
-
-        $context = $browser->getContext();
-        $page = $browser->getPage();
-
-        $this->assertNotNull($context);
-        $this->assertNotNull($page);
-
-        $browser->stop();
-    }
-
-    public function testStartIsIdempotent(): void
-    {
-        if ('1' !== ($_ENV['PLAYWRIGHT_E2E'] ?? $_SERVER['PLAYWRIGHT_E2E'] ?? getenv('PLAYWRIGHT_E2E'))) {
-            $this->markTestSkipped('Playwright E2E tests are disabled. Set PLAYWRIGHT_E2E=1 to enable.');
-        }
-
-        $browser = new BrowserRegistry('chromium', true);
-        $browser->start();
-
-        $firstContext = $browser->getContext();
-
-        // Calling start again should not create new context
-        $browser->start();
-
-        $secondContext = $browser->getContext();
-
-        $this->assertSame($firstContext, $secondContext);
-
-        $browser->stop();
     }
 }

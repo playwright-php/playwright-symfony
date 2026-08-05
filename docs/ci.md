@@ -35,7 +35,6 @@ jobs:
       - name: Run Tests
         run: vendor/bin/phpunit
         env:
-          PLAYWRIGHT_E2E: 1
           PLAYWRIGHT_HEADLESS: true
 ```
 
@@ -48,7 +47,6 @@ For GitLab, you can use a Node-capable image or install Node manually in your PH
 test:
   image: php:8.3
   variables:
-    PLAYWRIGHT_E2E: "1"
     PLAYWRIGHT_HEADLESS: "true"
   before_script:
     # Install Node.js
