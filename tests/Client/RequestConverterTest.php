@@ -319,4 +319,14 @@ class RequestConverterTest extends TestCase
         self::assertSame('localhost', $symfony->server->get('SERVER_NAME'));
         self::assertSame('not-a-valid-url', $symfony->server->get('REQUEST_URI'));
     }
+
+    public function testPopulatesRemoteAddr(): void
+    {
+        $converter = new RequestConverter();
+        $request = new MockRequest(url: 'http://localhost/', method: 'GET');
+
+        $symfony = $converter->convertToSymfonyRequest($request);
+
+        self::assertSame('127.0.0.1', $symfony->getClientIp());
+    }
 }
