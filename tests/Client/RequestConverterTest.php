@@ -127,6 +127,40 @@ class RequestConverterTest extends TestCase
         self::assertSame(rtrim($binary, "\r\n"), file_get_contents($file->getRealPath()));
     }
 
+    public function testMultipartAppendsRepeatedArrayFields(): void
+    {
+        $boundary = 'Boundary123';
+        $body = "--$boundary\r\n".
+            "Content-Disposition: form-data; name=\"choices[]\"\r\n\r\none\r\n".
+            "--$boundary\r\n".
+            "Content-Disposition: form-data; name=\"choices[]\"\r\n\r\nthree\r\n".
+            "--$boundary\r\n".
+            "Content-Disposition: form-data; name=\"uploads[]\"; filename=\"a.txt\"\r\n".
+            "Content-Type: text/plain\r\n\r\naaa\r\n".
+            "--$boundary\r\n".
+            "Content-Disposition: form-data; name=\"uploads[]\"; filename=\"b.txt\"\r\n".
+            "Content-Type: text/plain\r\n\r\nbbb\r\n".
+            "--$boundary--\r\n";
+
+        $converter = new RequestConverter();
+        $request = new MockRequest(
+            url: 'http://localhost/submit',
+            method: 'POST',
+            headers: ['content-type' => 'multipart/form-data; boundary='.$boundary],
+            postData: $body,
+        );
+
+        $symfony = $converter->convertToSymfonyRequest($request);
+
+        self::assertSame(['one', 'three'], $symfony->request->all('choices'));
+
+        $uploads = $symfony->files->get('uploads');
+        self::assertIsArray($uploads);
+        self::assertCount(2, $uploads);
+        self::assertSame('a.txt', $uploads[0]->getClientOriginalName());
+        self::assertSame('b.txt', $uploads[1]->getClientOriginalName());
+    }
+
     public function testConvertsHttpMethods(): void
     {
         $converter = new RequestConverter();
