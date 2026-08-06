@@ -35,19 +35,6 @@ final class AssetMapperTest extends PlaywrightTestCase
 {
     use PlaywrightTestAssertionsTrait;
 
-    protected function setUp(): void
-    {
-        if (!self::isPlaywrightEnabled()) {
-            $this->markTestSkipped('Playwright E2E tests are disabled. Set PLAYWRIGHT_E2E=1 to enable.');
-        }
-        parent::setUp();
-    }
-
-    private static function isPlaywrightEnabled(): bool
-    {
-        return '1' === getenv('PLAYWRIGHT_E2E');
-    }
-
     protected static function createKernel(array $options = []): KernelInterface
     {
         // Use debug=false to prevent debug output in tests

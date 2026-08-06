@@ -111,7 +111,6 @@ playwright:
 
 Configuration can be overridden at runtime using environment variables:
 
-- `PLAYWRIGHT_E2E`: Set to `1` to enable browser tests.
 - `PLAYWRIGHT_BROWSER`: `chromium`, `firefox`, or `webkit`.
 - `PLAYWRIGHT_HEADLESS`: `true` or `false`.
 - `PLAYWRIGHT_BASE_URL`: Override the default base URL.

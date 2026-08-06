@@ -75,23 +75,26 @@ class HomepageTest extends PlaywrightTestCase
 
 ## Running the Suite
 
-By default, browser tests are skipped to ensure your standard test suite remains fast. Use the `PLAYWRIGHT_E2E`
-environment variable to enable them.
+Browser tests run like any other test:
 
 ```bash
-PLAYWRIGHT_E2E=1 vendor/bin/phpunit
+vendor/bin/phpunit
 ```
+
+They are slower than the rest of your suite, so it is worth being able to run without them. Use PHPUnit's own
+selection: put them in their own `<testsuite>` (or tag them with `#[Group('e2e')]`) and skip them with
+`--testsuite=unit` or `--exclude-group=e2e`.
 
 ### Debugging & Visualization
 
 To see what is happening inside the browser during a test run, disable headless mode:
 
 ```bash
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit
+PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit
 ```
 
 To use a specific browser engine (default is `chromium`):
 
 ```bash
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_BROWSER=firefox vendor/bin/phpunit
+PLAYWRIGHT_BROWSER=firefox vendor/bin/phpunit
 ```

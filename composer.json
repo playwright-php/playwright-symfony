@@ -68,6 +68,6 @@
         "cs-check": "vendor/bin/php-cs-fixer fix --dry-run --diff",
         "cs-fix": "vendor/bin/php-cs-fixer fix --diff",
         "test": "vendor/bin/phpunit",
-        "test-e2e": "PLAYWRIGHT_E2E=1 vendor/bin/phpunit"
+        "test-unit": "vendor/bin/phpunit --testsuite=unit"
     }
 }

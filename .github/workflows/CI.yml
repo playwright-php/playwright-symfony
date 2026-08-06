@@ -77,8 +77,6 @@ jobs:
       matrix:
         php-version: ['8.4']
       fail-fast: false
-    env:
-      PLAYWRIGHT_E2E: '1'
     steps:
       - name: "Git: checkout"
         uses: actions/checkout@v4

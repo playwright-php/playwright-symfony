@@ -241,7 +241,6 @@ EOF
     <php>
         <env name="APP_ENV" value="test"/>
         <env name="KERNEL_CLASS" value="App\Kernel"/>
-        <env name="PLAYWRIGHT_E2E" value="1"/>
         <env name="PLAYWRIGHT_HEADLESS" value="true"/>
     </php>
 </phpunit>
@@ -442,7 +441,7 @@ run_tests() {
     echo "Running E2E Tests:"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    APP_ENV=test PLAYWRIGHT_E2E=1 vendor/bin/phpunit --testdox --colors=always
+    APP_ENV=test vendor/bin/phpunit --testdox --colors=always
     echo ""
     print_success "All tests passed"
 

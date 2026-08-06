@@ -66,7 +66,7 @@ playwright:
 ```
 
 > [!TIP]
-> You can override these values per test run via environment variables, e.g. `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_E2E`, `PLAYWRIGHT_VERBOSE`, and `PLAYWRIGHT_HEADLESS`.
+> You can override these values per test run via environment variables, e.g. `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_VERBOSE`, and `PLAYWRIGHT_HEADLESS`.
 
 See [Configuration Reference](docs/configuration.md) for all options.
 
@@ -122,14 +122,14 @@ class LoginTest extends E2ETest
 ### 3. Run Your Tests
 
 ```bash
-# Enable E2E tests and run
-PLAYWRIGHT_E2E=1 vendor/bin/phpunit tests/E2E
+# Run the E2E tests
+vendor/bin/phpunit tests/E2E
 
 # Run with visible browser for debugging
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
+PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
 ```
 
-> **Note:** Tests are skipped by default unless `PLAYWRIGHT_E2E=1` is set.
+> **Note:** Browser tests run with the rest of your suite. Use PHPUnit's own selection (a dedicated `<testsuite>`, `--exclude-group`, `--filter`) to leave them out of a run.
 
 ## How It Works
 
@@ -296,9 +296,6 @@ public function testWithFixtures(): void
 Control test behavior with environment variables:
 
 ```bash
-# Required to run E2E tests
-PLAYWRIGHT_E2E=1
-
 # Show browser window (default: headless)
 PLAYWRIGHT_HEADLESS=false
 
@@ -319,7 +316,7 @@ KERNEL_CLASS=App\\CustomKernel
 Run tests with a visible browser to see what's happening:
 
 ```bash
-PLAYWRIGHT_E2E=1 PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
+PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
 ```
 
 ### Inspect Requests & Responses
@@ -375,7 +372,6 @@ jobs:
       - name: Run E2E tests
         run: vendor/bin/phpunit tests/E2E
         env:
-          PLAYWRIGHT_E2E: '1'
           PLAYWRIGHT_HEADLESS: 'true'
 ```
 

@@ -62,7 +62,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  *
  * Configuration:
  * - Reads from bundle parameters: playwright.intercepted_hosts, playwright.base_url
- * - Reads from environment: PLAYWRIGHT_E2E=1 (required), PLAYWRIGHT_BROWSER, PLAYWRIGHT_HEADLESS
+ * - Reads from environment: PLAYWRIGHT_BROWSER, PLAYWRIGHT_HEADLESS
  * - Can configure via kernel container parameters
  *
  * Common methods:
@@ -97,8 +97,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  * ```
  *
  * Requirements:
- * - Set PLAYWRIGHT_E2E=1 environment variable (tests skipped otherwise)
- * - Playwright browsers installed via: npx playwright install
+ * - Playwright browsers installed via: vendor/bin/playwright-install --browsers
  *
  * @author Simon André <smn.andre@gmail.com>
  */
@@ -117,10 +116,6 @@ abstract class PlaywrightTestCase extends KernelTestCase
     {
         $this->playwrightLogger = new NullLogger();
         $this->debugLogging = false;
-
-        if ('1' !== ($_ENV['PLAYWRIGHT_E2E'] ?? $_SERVER['PLAYWRIGHT_E2E'] ?? getenv('PLAYWRIGHT_E2E'))) {
-            $this->markTestSkipped('Playwright E2E tests are disabled. Set PLAYWRIGHT_E2E=1 to enable.');
-        }
 
         parent::setUp();
         self::bootKernel();
