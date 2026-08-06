@@ -23,11 +23,13 @@ use Playwright\Symfony\BrowserKit\PlaywrightClient;
 use Playwright\Symfony\Tests\Client\Fixtures\FakeBrowserContext;
 use Playwright\Symfony\Tests\Client\Fixtures\FakePage;
 use Playwright\Symfony\Util\CookieJarSync;
+use Playwright\Symfony\Util\XPathHelper;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Link;
 
 #[CoversClass(PlaywrightClient::class)]
 #[UsesClass(CookieJarSync::class)]
+#[UsesClass(XPathHelper::class)]
 final class PlaywrightClientTest extends TestCase
 {
     public function testFactorySeedsCookieJarAndNavigates(): void
