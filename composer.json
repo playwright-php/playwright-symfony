@@ -44,7 +44,9 @@
         "symfony/mime":  "^7.0 || ^8.0",
         "symfony/phpunit-bridge": "^7.3 || ^8.0",
         "symfony/profiler-pack": "^1.0",
-        "symfony/security-bundle": "^7.3 || ^8.0"
+        "symfony/security-bundle": "^7.3 || ^8.0",
+        "symfony/ux-live-component": "^2.33 || ^3.0",
+        "symfony/ux-turbo": "^2.33 || ^3.0"
     },
     "autoload": {
         "psr-4": {
@@ -67,7 +69,13 @@
     "scripts": {
         "cs-check": "vendor/bin/php-cs-fixer fix --dry-run --diff",
         "cs-fix": "vendor/bin/php-cs-fixer fix --diff",
-        "test": "vendor/bin/phpunit",
+        "test": [
+            "@test-unit",
+            "@test-integration",
+            "@test-functional"
+        ],
+        "test-functional": "@php tests/run-functional.php",
+        "test-integration": "vendor/bin/phpunit --testsuite=integration",
         "test-unit": "vendor/bin/phpunit --testsuite=unit"
     }
 }

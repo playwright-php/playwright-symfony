@@ -97,7 +97,7 @@ jobs:
         run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: "PHPUnit: functional"
-        run: phpunit --testsuite=functional
+        run: composer test-functional
 
       - name: "PHPUnit: integration"
         run: phpunit --testsuite=integration

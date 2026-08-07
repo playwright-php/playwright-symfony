@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Turbo redirect test</title>
+    {{ importmap('app') }}
+</head>
+<body>
+    <main id="turbo-page">
+        <a id="turbo-drive-link" href="{{ path('ux_turbo_redirect') }}">Follow Turbo redirect</a>
+
+        <turbo-frame id="redirect-frame">
+            <a id="turbo-frame-link" href="{{ path('ux_turbo_frame_redirect') }}">Follow frame redirect</a>
+        </turbo-frame>
+    </main>
+</body>
+</html>

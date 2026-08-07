@@ -20,6 +20,10 @@ use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
+use Symfony\UX\LiveComponent\LiveComponentBundle;
+use Symfony\UX\StimulusBundle\StimulusBundle;
+use Symfony\UX\Turbo\TurboBundle;
+use Symfony\UX\TwigComponent\TwigComponentBundle;
 
 class TestKernel extends BaseKernel
 {
@@ -35,6 +39,10 @@ class TestKernel extends BaseKernel
     {
         yield new FrameworkBundle();
         yield new \Symfony\Bundle\TwigBundle\TwigBundle();
+        yield new StimulusBundle();
+        yield new TwigComponentBundle();
+        yield new LiveComponentBundle();
+        yield new TurboBundle();
         yield new PlaywrightSymfonyBundle();
     }
 
@@ -61,24 +69,45 @@ class TestKernel extends BaseKernel
             'assets' => [
                 'enabled' => true,
             ],
+            'property_access' => true,
+            'property_info' => true,
             'test' => true,
             'profiler' => [
                 'enabled' => true,
                 'collect' => false,
             ],
+            'type_info' => true,
             'asset_mapper' => [
                 'server' => true,
                 'paths' => [
                     __DIR__.'/assets',
                 ],
                 'importmap_path' => __DIR__.'/importmap.php',
+                'importmap_polyfill' => false,
+                'vendor_dir' => __DIR__.'/assets/vendor',
             ],
-            'http_client' => false,
+            'http_client' => true,
         ]);
 
         $container->extension('twig', [
             'default_path' => __DIR__.'/templates',
             'strict_variables' => true,
+        ]);
+
+        $container->extension('twig_component', [
+            'defaults' => [
+                'Playwright\\Symfony\\Tests\\Fixtures\\App\\Component\\' => 'components/',
+            ],
+            'anonymous_template_directory' => 'components/',
+        ]);
+
+        $container->extension('stimulus', [
+            'controller_paths' => [__DIR__.'/assets/controllers'],
+            'controllers_json' => __DIR__.'/assets/controllers.json',
+        ]);
+
+        $container->extension('turbo', [
+            'broadcast' => false,
         ]);
 
         // Register controllers as services with autowiring/autoconfiguration
@@ -99,6 +128,10 @@ class TestKernel extends BaseKernel
             ->load('Playwright\\Symfony\\Tests\\Fixtures\\App\\EventListener\\', __DIR__.'/EventListener/*')
             ->public();
 
+        $services
+            ->load('Playwright\\Symfony\\Tests\\Fixtures\\App\\Component\\', __DIR__.'/Component/*')
+            ->public();
+
         // Minimal Playwright config for tests
         $container->extension('playwright', [
             'enabled' => true,
@@ -109,6 +142,9 @@ class TestKernel extends BaseKernel
 
     protected function configureRoutes(RoutingConfigurator $routes): void
     {
+        $routes->import('@LiveComponentBundle/config/routes.php')
+            ->prefix('/_components');
+
         $routes->add('hello', '/hello')
             ->controller([Controller\HelloController::class, 'index']);
 
@@ -121,6 +157,27 @@ class TestKernel extends BaseKernel
 
         $routes->add('redirect_inspect', '/redirect/inspect')
             ->controller([Controller\RedirectController::class, 'inspect']);
+
+        $routes->add('ux_turbo', '/ux/turbo')
+            ->controller([Controller\UxController::class, 'turbo']);
+
+        $routes->add('ux_turbo_redirect', '/ux/turbo/redirect')
+            ->controller([Controller\UxController::class, 'turboRedirect']);
+
+        $routes->add('ux_turbo_final', '/ux/turbo/final')
+            ->controller([Controller\UxController::class, 'turboFinal']);
+
+        $routes->add('ux_turbo_frame_redirect', '/ux/turbo/frame/redirect')
+            ->controller([Controller\UxController::class, 'turboFrameRedirect']);
+
+        $routes->add('ux_turbo_frame_final', '/ux/turbo/frame/final')
+            ->controller([Controller\UxController::class, 'turboFrameFinal']);
+
+        $routes->add('ux_live', '/ux/live')
+            ->controller([Controller\UxController::class, 'live']);
+
+        $routes->add('ux_live_final', '/ux/live/final')
+            ->controller([Controller\UxController::class, 'liveFinal']);
 
         $routes->add('big', '/big')
             ->controller([Controller\BigController::class, 'index']);

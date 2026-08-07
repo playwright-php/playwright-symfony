@@ -1,6 +1,7 @@
 /var/
 /vendor/
 /tests/Fixtures/App/var
+/tests/Fixtures/App/assets/vendor/
 /test-app
 /.phpunit.cache
 /.php-cs-fixer.cache
