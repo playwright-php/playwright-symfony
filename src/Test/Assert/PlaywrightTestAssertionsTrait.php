@@ -14,7 +14,11 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Test\Assert;
 
+use Playwright\Locator\LocatorInterface;
 use Playwright\Page\PageInterface;
+use Playwright\Testing\Expect;
+use Playwright\Testing\ExpectDecorator;
+use Playwright\Testing\ExpectInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -42,23 +46,22 @@ trait PlaywrightTestAssertionsTrait
 
     protected function assertSelectorNotExists(string $selector): void
     {
-        $count = $this->getPage()->locator($selector)->count();
-        $this->assertSame(0, $count, "Selector '$selector' should not exist");
+        $this->expectLocator($this->getPage()->locator($selector))->toHaveCount(0);
     }
 
     protected function assertSelectorVisible(string $selector): void
     {
-        $this->assertTrue($this->getPage()->locator($selector)->isVisible(), "Selector '$selector' is not visible");
+        $this->expectLocator($this->getPage()->locator($selector))->toBeVisible();
     }
 
     protected function assertSelectorHidden(string $selector): void
     {
-        $this->assertTrue($this->getPage()->locator($selector)->isHidden(), "Selector '$selector' is not hidden");
+        $this->expectLocator($this->getPage()->locator($selector))->toBeHidden();
     }
 
     protected function assertSelectorTextContains(string $selector, string $text): void
     {
-        $this->assertStringContainsString($text, $this->getPage()->locator($selector)->textContent() ?? '', "Selector '$selector' does not contain text '$text'");
+        $this->expectLocator($this->getPage()->locator($selector))->toContainText($text);
     }
 
     protected function assertResponseStatusCode(int $expectedCode): void
@@ -118,6 +121,11 @@ trait PlaywrightTestAssertionsTrait
     protected function screenshot(string $path): void
     {
         $this->getPage()->screenshot($path);
+    }
+
+    private function expectLocator(LocatorInterface $locator): ExpectInterface
+    {
+        return new ExpectDecorator(new Expect($locator), $this);
     }
 
     /**
