@@ -26,6 +26,7 @@ use Playwright\Locator\Options\LocatorOptions;
 use Playwright\Network\RequestInterface;
 use Playwright\Network\ResponseInterface;
 use Playwright\Page\Options\ClickOptions;
+use Playwright\Page\Options\DragAndDropOptions;
 use Playwright\Page\Options\FrameQueryOptions;
 use Playwright\Page\Options\GotoOptions;
 use Playwright\Page\Options\NavigationHistoryOptions;
@@ -56,6 +57,21 @@ class FakePage implements PageInterface
 
     public function __construct(private BrowserContextInterface $context)
     {
+    }
+
+    public function pause(): PageInterface
+    {
+        return $this;
+    }
+
+    public function addInitScript(string $script): PageInterface
+    {
+        return $this;
+    }
+
+    public function setExtraHTTPHeaders(array $headers): PageInterface
+    {
+        return $this;
     }
 
     public function route(string $pattern, callable $handler): void
@@ -93,6 +109,11 @@ class FakePage implements PageInterface
     }
 
     public function click(string $selector, ClickOptions|array $options = []): PageInterface
+    {
+        return $this;
+    }
+
+    public function dragAndDrop(string $source, string $target, DragAndDropOptions|array $options = []): PageInterface
     {
         return $this;
     }

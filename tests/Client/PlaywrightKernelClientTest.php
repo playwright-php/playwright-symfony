@@ -153,6 +153,109 @@ class PlaywrightKernelClientTest extends TestCase
         self::assertInstanceOf(SymfonyResponse::class, $seen->after);
     }
 
+    public function testDocumentRedirectUsesPlaywrightNavigationRedirect(): void
+    {
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse('', 302, [
+                        'location' => '/target?from=redirect',
+                        'set-cookie' => 'redirected=yes; Path=/',
+                    ]);
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $client->visit('/start');
+
+        $route = $this->page->triggerRequest(new MockRequest(
+            url: 'http://localhost/source',
+            resourceType: 'document',
+        ));
+
+        self::assertSame('http://localhost/target?from=redirect', $route->redirectUrl);
+        self::assertSame('redirected=yes; path=/', $route->redirectOptions['headers']['set-cookie'] ?? null);
+        self::assertArrayNotHasKey('location', $route->redirectOptions['headers'] ?? []);
+        self::assertFalse($route->fulfilled);
+    }
+
+    public function testMethodPreservingDocumentRedirectIsOnlyReplayedForGetRequests(): void
+    {
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse('', 307, ['location' => '/target']);
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $client->visit('/start');
+
+        $route = $this->page->triggerRequest(new MockRequest(
+            url: 'http://localhost/source',
+            method: 'POST',
+            resourceType: 'document',
+        ));
+
+        self::assertNull($route->redirectUrl);
+        self::assertTrue($route->fulfilled);
+        self::assertSame(307, $route->fulfilledOptions['status'] ?? null);
+    }
+
+    public function testFetchRedirectIsExposedToTheFetchWrapper(): void
+    {
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse('', 303, ['location' => '../target']);
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $client->visit('/start');
+
+        $route = $this->page->triggerRequest(new MockRequest(
+            url: 'http://localhost/path/source',
+            method: 'POST',
+            resourceType: 'fetch',
+        ));
+
+        self::assertNull($route->redirectUrl);
+        self::assertTrue($route->fulfilled);
+        self::assertSame(200, $route->fulfilledOptions['status'] ?? null);
+        self::assertSame('http://localhost/target', $route->fulfilledOptions['headers']['X-Playwright-PHP-Redirect'] ?? null);
+        self::assertSame('303', $route->fulfilledOptions['headers']['X-Playwright-PHP-Redirect-Status'] ?? null);
+        self::assertArrayNotHasKey('location', $route->fulfilledOptions['headers'] ?? []);
+    }
+
+    public function testFetchRedirectWrapperIsInstalledOnTheBrowserContext(): void
+    {
+        new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse();
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        self::assertCount(1, $this->context->initScripts);
+        self::assertStringContainsString('X-Playwright-PHP-Redirect', $this->context->initScripts[0]);
+        self::assertStringContainsString('redirects <= 10', $this->context->initScripts[0]);
+    }
+
     public function testNonInterceptedRequestContinues(): void
     {
         $client = new PlaywrightKernelClient(

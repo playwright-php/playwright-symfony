@@ -21,6 +21,8 @@ class FakeRoute
     public bool $continued = false;
     public bool $fulfilled = false;
     public ?array $fulfilledOptions = null;
+    public ?string $redirectUrl = null;
+    public ?array $redirectOptions = null;
 
     public function __construct(private RequestInterface $request)
     {
@@ -40,5 +42,11 @@ class FakeRoute
     {
         $this->fulfilled = true;
         $this->fulfilledOptions = $options;
+    }
+
+    public function redirectNavigationRequest(string $url, array $options = []): void
+    {
+        $this->redirectUrl = $url;
+        $this->redirectOptions = $options;
     }
 }

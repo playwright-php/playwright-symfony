@@ -350,9 +350,7 @@ JS,
             }
         }
         if (!empty($headers)) {
-            if (method_exists($this->context, 'setExtraHTTPHeaders')) {
-                $this->context->setExtraHTTPHeaders($headers);
-            }
+            $this->context->setExtraHTTPHeaders($headers);
         }
 
         if (isset($server['PHP_AUTH_USER'], $server['PHP_AUTH_PW'])) {

@@ -32,46 +32,6 @@ class ResponseConverterTest extends TestCase
         $this->converter = new ResponseConverter();
     }
 
-    public function testNavigationRedirectIsEmittedClientSide(): void
-    {
-        $response = new Response('', 302, [
-            'location' => '/target?a=b',
-            'set-cookie' => 'SESSID=abc; path=/',
-        ]);
-
-        $opts = $this->converter->prepareFulfillOptions($response, true);
-
-        $this->assertSame(200, $opts['status']);
-        $this->assertSame('text/html; charset=UTF-8', $opts['contentType']);
-        $this->assertStringContainsString('location.replace("/target?a=b")', $opts['body']);
-        $this->assertArrayNotHasKey('location', $opts['headers']);
-        // cookies set alongside the redirect must survive
-        $this->assertArrayHasKey('set-cookie', $opts['headers']);
-    }
-
-    public function testSubresourceRedirectIsLeftAlone(): void
-    {
-        $response = new Response('', 302, ['location' => '/target']);
-
-        $opts = $this->converter->prepareFulfillOptions($response);
-
-        $this->assertSame(302, $opts['status']);
-        $this->assertSame('/target', $opts['headers']['location']);
-    }
-
-    public function testMethodPreservingRedirectsAreLeftAlone(): void
-    {
-        foreach ([307, 308] as $status) {
-            $opts = $this->converter->prepareFulfillOptions(
-                new Response('', $status, ['location' => '/target']),
-                true,
-            );
-
-            $this->assertSame($status, $opts['status']);
-            $this->assertSame('/target', $opts['headers']['location']);
-        }
-    }
-
     public function testPrepareFulfillOptionsForTextResponse(): void
     {
         $response = new Response('hello', 200, [

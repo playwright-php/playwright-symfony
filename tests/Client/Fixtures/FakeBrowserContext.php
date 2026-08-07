@@ -16,7 +16,10 @@ namespace Playwright\Symfony\Tests\Client\Fixtures;
 
 use Playwright\API\APIRequestContextInterface;
 use Playwright\Browser\BrowserContextInterface;
+use Playwright\Browser\BrowserInterface;
 use Playwright\Browser\StorageState;
+use Playwright\Clock\ClockInterface;
+use Playwright\Clock\NullClock;
 use Playwright\Network\NetworkThrottling;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Tests\Fixtures\Tracing\NullTracing;
@@ -26,12 +29,27 @@ class FakeBrowserContext implements BrowserContextInterface
 {
     /** @var array<int, array<string, mixed>> */
     public array $cookies = [];
+    /** @var list<string> */
+    public array $initScripts = [];
     public array $extraHTTPHeaders = [];
     public ?array $httpCredentials = null;
     public int $waitForPopupCalls = 0;
     /** @var array<int, PageInterface> */
     private array $pages = [];
     private ?string $envValue = null;
+
+    public function clock(): ClockInterface
+    {
+        return new NullClock();
+    }
+
+    public function setGeolocation(?float $latitude, ?float $longitude, ?float $accuracy = 0): void
+    {
+    }
+
+    public function setOffline(bool $offline): void
+    {
+    }
 
     public function addCookies(array $cookies): void
     {
@@ -46,6 +64,7 @@ class FakeBrowserContext implements BrowserContextInterface
 
     public function addInitScript(string $script): void
     {
+        $this->initScripts[] = $script;
     }
 
     public function clearCookies(array $options = []): void
@@ -99,6 +118,11 @@ class FakeBrowserContext implements BrowserContextInterface
     public function pages(): array
     {
         return $this->pages;
+    }
+
+    public function browser(): ?BrowserInterface
+    {
+        return null;
     }
 
     public function storageState(?string $path = null): array
@@ -181,5 +205,13 @@ class FakeBrowserContext implements BrowserContextInterface
     public function request(): APIRequestContextInterface
     {
         throw new \BadMethodCallException('Not implemented in fake context.');
+    }
+
+    public function setDefaultTimeout(int $timeout): void
+    {
+    }
+
+    public function setDefaultNavigationTimeout(int $timeout): void
+    {
     }
 }

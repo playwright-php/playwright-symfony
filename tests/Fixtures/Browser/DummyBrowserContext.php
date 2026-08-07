@@ -17,7 +17,10 @@ namespace Playwright\Symfony\Tests\Fixtures\Browser;
 use Playwright\API\APIRequestContextInterface;
 use Playwright\API\APIResponseInterface;
 use Playwright\Browser\BrowserContextInterface;
+use Playwright\Browser\BrowserInterface;
 use Playwright\Browser\StorageState;
+use Playwright\Clock\ClockInterface;
+use Playwright\Clock\NullClock;
 use Playwright\Network\NetworkThrottling;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Tests\Fixtures\Tracing\NullTracing;
@@ -32,11 +35,28 @@ final class DummyBrowserContext implements BrowserContextInterface
     ) {
     }
 
+    public function clock(): ClockInterface
+    {
+        return new NullClock();
+    }
+
+    public function setGeolocation(?float $latitude, ?float $longitude, ?float $accuracy = 0): void
+    {
+    }
+
+    public function setOffline(bool $offline): void
+    {
+    }
+
     public function addCookies(array $cookies): void
     {
     }
 
     public function addInitScript(string $script): void
+    {
+    }
+
+    public function setExtraHTTPHeaders(array $headers): void
     {
     }
 
@@ -82,6 +102,11 @@ final class DummyBrowserContext implements BrowserContextInterface
     public function pages(): array
     {
         return [$this->page];
+    }
+
+    public function browser(): ?BrowserInterface
+    {
+        return null;
     }
 
     public function storageState(?string $path = null): array
@@ -203,5 +228,13 @@ final class DummyBrowserContext implements BrowserContextInterface
                 };
             }
         };
+    }
+
+    public function setDefaultTimeout(int $timeout): void
+    {
+    }
+
+    public function setDefaultNavigationTimeout(int $timeout): void
+    {
     }
 }

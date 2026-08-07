@@ -26,6 +26,7 @@ use Playwright\Locator\Options\GetByRoleOptions;
 use Playwright\Locator\Options\LocatorOptions;
 use Playwright\Network\ResponseInterface;
 use Playwright\Page\Options\ClickOptions;
+use Playwright\Page\Options\DragAndDropOptions;
 use Playwright\Page\Options\FrameQueryOptions;
 use Playwright\Page\Options\GotoOptions;
 use Playwright\Page\Options\NavigationHistoryOptions;
@@ -50,6 +51,21 @@ final class DummyPage implements PageInterface
 {
     /** @var array<int, array{0: string, 1: callable}> */
     public array $routes = [];
+
+    public function pause(): self
+    {
+        return $this;
+    }
+
+    public function addInitScript(string $script): self
+    {
+        return $this;
+    }
+
+    public function setExtraHTTPHeaders(array $headers): self
+    {
+        return $this;
+    }
 
     public function locator(string $selector, LocatorOptions|array $options = []): LocatorInterface
     {
@@ -97,6 +113,11 @@ final class DummyPage implements PageInterface
     }
 
     public function click(string $selector, ClickOptions|array $options = []): self
+    {
+        return $this;
+    }
+
+    public function dragAndDrop(string $source, string $target, DragAndDropOptions|array $options = []): self
     {
         return $this;
     }

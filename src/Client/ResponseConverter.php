@@ -32,12 +32,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ResponseConverter
 {
     /**
-     * @param bool $isNavigation Whether the intercepted request was a navigation, in which case
-     *                           redirects are emitted client-side {@see self::rewriteRedirect()}
-     *
      * @return array<string, mixed>
      */
-    public function prepareFulfillOptions(SymfonyResponse $response, bool $isNavigation = false): array
+    public function prepareFulfillOptions(SymfonyResponse $response): array
     {
         $headers = $this->formatHeaders($response->headers->all());
         $contentType = $response->headers->get('content-type') ?: null;
@@ -99,51 +96,7 @@ class ResponseConverter
             }
         }
 
-        if ($isNavigation) {
-            $options = $this->rewriteRedirect($response, $options);
-        }
-
         return $options;
-    }
-
-    /**
-     * Playwright does not route the follow-up request of a redirect that an interceptor fulfilled:
-     * the browser leaves interception and hits the network instead (ERR_CONNECTION_REFUSED against
-     * a kernel that isn't listening on a port). Emit the redirect client-side so the browser makes
-     * a fresh navigation which does go through routing again - and so page.url() ends up on the
-     * target rather than on the redirecting url.
-     *
-     * 307/308 are deliberately left alone: they must preserve the request method, which
-     * location.replace() cannot do.
-     *
-     * @param array<string, mixed> $options
-     *
-     * @return array<string, mixed>
-     */
-    private function rewriteRedirect(SymfonyResponse $response, array $options): array
-    {
-        if (!in_array($response->getStatusCode(), [301, 302, 303], true)) {
-            return $options;
-        }
-
-        $location = $response->headers->get('location');
-
-        if (null === $location || '' === $location) {
-            return $options;
-        }
-
-        $headers = is_array($options['headers'] ?? null) ? $options['headers'] : [];
-        unset($headers['location'], $headers['Location']);
-
-        return [
-            'status' => 200,
-            'headers' => $headers,
-            'contentType' => 'text/html; charset=UTF-8',
-            'body' => sprintf(
-                '<!DOCTYPE html><script>location.replace(%s)</script>',
-                json_encode($location, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            ),
-        ];
     }
 
     /**

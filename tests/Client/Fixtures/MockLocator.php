@@ -72,6 +72,11 @@ class MockLocator implements LocatorInterface
         return null;
     }
 
+    public function evaluateAll(string $expression, mixed $arg = null): mixed
+    {
+        return null;
+    }
+
     public function __call($name, $arguments)
     {
         $this->record((string) $name, (array) $arguments);

@@ -119,6 +119,9 @@ class TestKernel extends BaseKernel
         $routes->add('redirect_demo', '/redirect')
             ->controller([Controller\RedirectController::class, 'go']);
 
+        $routes->add('redirect_inspect', '/redirect/inspect')
+            ->controller([Controller\RedirectController::class, 'inspect']);
+
         $routes->add('big', '/big')
             ->controller([Controller\BigController::class, 'index']);
 
