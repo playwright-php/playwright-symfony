@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Tests\Functional;
 
+use PHPUnit\Framework\Attributes\Group;
 use Playwright\Symfony\Test\PlaywrightTestCase;
 use Playwright\Symfony\Tests\Fixtures\App\Service\UserRepository;
 
@@ -28,10 +29,9 @@ use Playwright\Symfony\Tests\Fixtures\App\Service\UserRepository;
  * - Logout flow
  *
  * Note: Form submission with redirect skipped due to known redirect limitation in intercept mode
- *
- * @group e2e
- * @group integration
  */
+#[Group('e2e')]
+#[Group('integration')]
 final class CompleteIntegrationFlowTest extends PlaywrightTestCase
 {
     public function testCompleteUserProfileWorkflow(): void

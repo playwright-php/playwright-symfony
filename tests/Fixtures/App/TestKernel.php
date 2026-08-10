@@ -48,7 +48,7 @@ class TestKernel extends BaseKernel
 
     protected function configureContainer(ContainerConfigurator $container): void
     {
-        $container->extension('framework', [
+        $framework = [
             'secret' => 'test-secret-for-testing',
             'router' => [
                 'utf8' => true,
@@ -76,7 +76,6 @@ class TestKernel extends BaseKernel
                 'enabled' => true,
                 'collect' => false,
             ],
-            'type_info' => true,
             'asset_mapper' => [
                 'server' => true,
                 'paths' => [
@@ -87,7 +86,14 @@ class TestKernel extends BaseKernel
                 'vendor_dir' => __DIR__.'/assets/vendor',
             ],
             'http_client' => true,
-        ]);
+        ];
+
+        // framework.type_info only exists from Symfony 7.1
+        if (BaseKernel::VERSION_ID >= 70100) {
+            $framework['type_info'] = true;
+        }
+
+        $container->extension('framework', $framework);
 
         $container->extension('twig', [
             'default_path' => __DIR__.'/templates',
