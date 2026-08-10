@@ -14,7 +14,11 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Tests\Client\Fixtures;
 
+use Playwright\JSHandle\JSHandleInterface;
 use Playwright\Locator\LocatorInterface;
+use Playwright\Locator\Options\DropOptions;
+use Playwright\Locator\Options\DropPayload;
+use Playwright\Locator\Options\WaitForFunctionOptions;
 use Playwright\Page\PageInterface;
 
 class MockLocator implements LocatorInterface
@@ -68,6 +72,11 @@ class MockLocator implements LocatorInterface
     }
 
     public function evaluate(string $expression, mixed $arg = null, mixed $options = []): mixed
+    {
+        return null;
+    }
+
+    public function evaluateAll(string $expression, mixed $arg = null): mixed
     {
         return null;
     }
@@ -343,6 +352,29 @@ class MockLocator implements LocatorInterface
     }
 
     public function describe(string $description): LocatorInterface
+    {
+        return $this;
+    }
+
+    public function drop(DropPayload|array $payload, DropOptions|array $options = []): void
+    {
+    }
+
+    public function evaluateHandle(string $expression, mixed $arg = null): JSHandleInterface
+    {
+        throw new \BadMethodCallException('Not implemented in MockLocator.');
+    }
+
+    public function waitForFunction(string $pageFunction, mixed $arg = null, WaitForFunctionOptions|array $options = []): LocatorInterface
+    {
+        return $this;
+    }
+
+    public function hideHighlight(): void
+    {
+    }
+
+    public function normalize(): LocatorInterface
     {
         return $this;
     }

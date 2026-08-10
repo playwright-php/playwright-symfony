@@ -202,4 +202,9 @@ final readonly class MockRequest implements RequestInterface
             'responseEnd' => -1.0,
         ];
     }
+
+    public function existingResponse(): ?ResponseInterface
+    {
+        return null;
+    }
 }

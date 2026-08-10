@@ -29,6 +29,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Form;
 use Symfony\Component\DomCrawler\Link;
+use Symfony\Component\DomCrawler\UriResolver;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -85,6 +86,71 @@ use Symfony\Component\HttpKernel\TerminableInterface;
  */
 class PlaywrightKernelClient extends AbstractBrowser
 {
+    private const FETCH_REDIRECT_SCRIPT = <<<'JS'
+        (() => {
+            const nativeFetch = window.fetch.bind(window);
+
+            const withRedirectedFlag = (response, url) => new Proxy(response, {
+                get(target, property) {
+                    if (property === 'redirected') {
+                        return true;
+                    }
+
+                    if (property === 'url') {
+                        return url;
+                    }
+
+                    const value = Reflect.get(target, property, target);
+
+                    return typeof value === 'function' ? value.bind(target) : value;
+                },
+            });
+
+            window.fetch = async (input, init) => {
+                let request = new Request(input, init);
+
+                for (let redirects = 0; redirects <= 10; ++redirects) {
+                    const preservedRequest = request.clone();
+                    const response = await nativeFetch(request);
+                    const location = response.headers.get('X-Playwright-PHP-Redirect');
+
+                    if (!location) {
+                        return redirects === 0 ? response : withRedirectedFlag(response, request.url);
+                    }
+
+                    if (redirects === 10) {
+                        throw new TypeError('Maximum redirect count exceeded');
+                    }
+
+                    const status = Number(response.headers.get('X-Playwright-PHP-Redirect-Status'));
+                    const changeToGet = (status === 303 && preservedRequest.method !== 'GET' && preservedRequest.method !== 'HEAD')
+                        || ((status === 301 || status === 302) && preservedRequest.method === 'POST');
+                    const headers = new Headers(preservedRequest.headers);
+                    const method = changeToGet ? 'GET' : preservedRequest.method;
+
+                    if (changeToGet) {
+                        headers.delete('Content-Length');
+                        headers.delete('Content-Type');
+                    }
+
+                    request = new Request(location, {
+                        body: method === 'GET' || method === 'HEAD' ? undefined : await preservedRequest.blob(),
+                        cache: preservedRequest.cache,
+                        credentials: preservedRequest.credentials,
+                        headers,
+                        keepalive: preservedRequest.keepalive,
+                        method,
+                        mode: preservedRequest.mode,
+                        redirect: preservedRequest.redirect,
+                        referrer: preservedRequest.referrer,
+                        referrerPolicy: preservedRequest.referrerPolicy,
+                        signal: preservedRequest.signal,
+                    });
+                }
+            };
+        })();
+        JS;
+
     private ?SymfonyRequest $lastSymfonyRequest = null;
     private ?SymfonyResponse $lastSymfonyResponse = null;
     /** @var string[] */
@@ -124,6 +190,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         $this->logger = $logger ?? new NullLogger();
 
         if ($context = $this->browser->getContext()) {
+            $context->addInitScript(self::FETCH_REDIRECT_SCRIPT);
             CookieJarSync::fromContext($this->getCookieJar(), $context);
         }
     }
@@ -477,6 +544,57 @@ class PlaywrightKernelClient extends AbstractBrowser
             }
 
             $response = $this->handleInternalRequest($request);
+            $location = $response->headers->get('location');
+            $statusCode = $response->getStatusCode();
+            if (
+                'document' === $request->resourceType()
+                && (
+                    in_array($statusCode, [301, 302, 303], true)
+                    || ('GET' === $request->method() && in_array($statusCode, [307, 308], true))
+                )
+                && null !== $location
+                && '' !== $location
+            ) {
+                // Route::redirectNavigationRequest() is @internal in playwright-php/playwright.
+                // Depending on it is deliberate, so its absence must fail loudly: falling back to
+                // a plain fulfill() would leave the page on the 3xx with no error of any kind.
+                if (!method_exists($route, 'redirectNavigationRequest')) {
+                    throw new \RuntimeException(sprintf('Cannot follow the %d redirect to "%s": %s::redirectNavigationRequest() is missing. Upgrade playwright-php/playwright to 1.4.0 or later.', $statusCode, $location, get_debug_type($route)));
+                }
+
+                $fulfillOptions = $this->responseConverter->prepareFulfillOptions($response);
+                $headers = is_array($fulfillOptions['headers'] ?? null) ? $fulfillOptions['headers'] : [];
+                unset($headers['location'], $headers['Location']);
+                $route->redirectNavigationRequest(
+                    UriResolver::resolve($location, $request->url()),
+                    ['headers' => $headers],
+                );
+
+                return;
+            }
+
+            if (
+                'fetch' === $request->resourceType()
+                && in_array($statusCode, [301, 302, 303, 307, 308], true)
+                && null !== $location
+                && '' !== $location
+                && method_exists($route, 'fulfill')
+            ) {
+                $fulfillOptions = $this->responseConverter->prepareFulfillOptions($response);
+                $headers = is_array($fulfillOptions['headers'] ?? null) ? $fulfillOptions['headers'] : [];
+                unset($headers['location'], $headers['Location']);
+                $headers['X-Playwright-PHP-Redirect'] = UriResolver::resolve($location, $request->url());
+                $headers['X-Playwright-PHP-Redirect-Status'] = (string) $statusCode;
+
+                $route->fulfill([
+                    'status' => 200,
+                    'headers' => $headers,
+                    'body' => '',
+                ]);
+
+                return;
+            }
+
             if (method_exists($route, 'fulfill')) {
                 $route->fulfill($this->responseConverter->prepareFulfillOptions($response));
             }

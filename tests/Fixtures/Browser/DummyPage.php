@@ -17,15 +17,23 @@ namespace Playwright\Symfony\Tests\Fixtures\Browser;
 use Playwright\API\APIRequestContextInterface;
 use Playwright\API\APIResponseInterface;
 use Playwright\Browser\BrowserContextInterface;
+use Playwright\Clock\ClockInterface;
+use Playwright\Clock\NullClock;
 use Playwright\Frame\FrameInterface;
 use Playwright\Frame\FrameLocatorInterface;
 use Playwright\Input\KeyboardInterface;
 use Playwright\Input\MouseInterface;
+use Playwright\Input\TouchscreenInterface;
+use Playwright\JSHandle\JSHandleInterface;
 use Playwright\Locator\LocatorInterface;
+use Playwright\Locator\Options\AriaSnapshotOptions;
 use Playwright\Locator\Options\GetByRoleOptions;
 use Playwright\Locator\Options\LocatorOptions;
+use Playwright\Network\RequestInterface;
 use Playwright\Network\ResponseInterface;
 use Playwright\Page\Options\ClickOptions;
+use Playwright\Page\Options\DragAndDropOptions;
+use Playwright\Page\Options\EmulateMediaOptions;
 use Playwright\Page\Options\FrameQueryOptions;
 use Playwright\Page\Options\GotoOptions;
 use Playwright\Page\Options\NavigationHistoryOptions;
@@ -39,17 +47,36 @@ use Playwright\Page\Options\TypeOptions;
 use Playwright\Page\Options\WaitForFunctionOptions;
 use Playwright\Page\Options\WaitForLoadStateOptions;
 use Playwright\Page\Options\WaitForPopupOptions;
+use Playwright\Page\Options\WaitForRequestOptions;
 use Playwright\Page\Options\WaitForResponseOptions;
 use Playwright\Page\Options\WaitForSelectorOptions;
 use Playwright\Page\Options\WaitForUrlOptions;
 use Playwright\Page\PageEventHandlerInterface;
 use Playwright\Page\PageInterface;
 use Playwright\Regex;
+use Playwright\Screencast\ScreencastInterface;
+use Playwright\Video\VideoInterface;
+use Playwright\WebStorage\WebStorageInterface;
 
 final class DummyPage implements PageInterface
 {
     /** @var array<int, array{0: string, 1: callable}> */
     public array $routes = [];
+
+    public function pause(): self
+    {
+        return $this;
+    }
+
+    public function addInitScript(string $script): self
+    {
+        return $this;
+    }
+
+    public function setExtraHTTPHeaders(array $headers): self
+    {
+        return $this;
+    }
 
     public function locator(string $selector, LocatorOptions|array $options = []): LocatorInterface
     {
@@ -97,6 +124,11 @@ final class DummyPage implements PageInterface
     }
 
     public function click(string $selector, ClickOptions|array $options = []): self
+    {
+        return $this;
+    }
+
+    public function dragAndDrop(string $source, string $target, DragAndDropOptions|array $options = []): self
     {
         return $this;
     }
@@ -380,5 +412,94 @@ final class DummyPage implements PageInterface
                 };
             }
         };
+    }
+
+    public function evaluateHandle(string $expression, mixed $arg = null): JSHandleInterface
+    {
+        throw new \BadMethodCallException('Not needed in DummyPage');
+    }
+
+    public function consoleMessages(array $options = []): array
+    {
+        return [];
+    }
+
+    public function clearConsoleMessages(): PageInterface
+    {
+        return $this;
+    }
+
+    public function clearPageErrors(): PageInterface
+    {
+        return $this;
+    }
+
+    public function ariaSnapshot(AriaSnapshotOptions|array $options = []): string
+    {
+        return '';
+    }
+
+    public function emulateMedia(EmulateMediaOptions|array $options = []): PageInterface
+    {
+        return $this;
+    }
+
+    public function requestGC(): PageInterface
+    {
+        return $this;
+    }
+
+    public function clock(): ClockInterface
+    {
+        return new NullClock();
+    }
+
+    public function video(): ?VideoInterface
+    {
+        return null;
+    }
+
+    public function hideHighlight(): PageInterface
+    {
+        return $this;
+    }
+
+    public function touchscreen(): TouchscreenInterface
+    {
+        throw new \BadMethodCallException('Not needed in DummyPage');
+    }
+
+    public function localStorage(): WebStorageInterface
+    {
+        throw new \BadMethodCallException('Not needed in DummyPage');
+    }
+
+    public function sessionStorage(): WebStorageInterface
+    {
+        throw new \BadMethodCallException('Not needed in DummyPage');
+    }
+
+    public function screencast(): ScreencastInterface
+    {
+        throw new \BadMethodCallException('Not needed in DummyPage');
+    }
+
+    public function unrouteAll(array $options = []): void
+    {
+    }
+
+    public function waitForRequest(string $url, WaitForRequestOptions|array $options = []): RequestInterface
+    {
+        throw new \BadMethodCallException('Not needed in DummyPage');
+    }
+
+    public function opener(): ?PageInterface
+    {
+        return null;
+    }
+
+    public function requests(): array
+    {
+        return [];
     }
 }
