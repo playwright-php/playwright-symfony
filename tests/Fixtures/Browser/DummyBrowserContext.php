@@ -21,6 +21,7 @@ use Playwright\Browser\BrowserInterface;
 use Playwright\Browser\StorageState;
 use Playwright\Clock\ClockInterface;
 use Playwright\Clock\NullClock;
+use Playwright\Credentials\CredentialsInterface;
 use Playwright\Network\NetworkThrottling;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Tests\Fixtures\Tracing\NullTracing;
@@ -235,6 +236,20 @@ final class DummyBrowserContext implements BrowserContextInterface
     }
 
     public function setDefaultNavigationTimeout(int $timeout): void
+    {
+    }
+
+    public function credentials(): CredentialsInterface
+    {
+        throw new \BadMethodCallException('Not needed in DummyBrowserContext');
+    }
+
+    public function isClosed(): bool
+    {
+        return false;
+    }
+
+    public function unrouteAll(array $options = []): void
     {
     }
 }

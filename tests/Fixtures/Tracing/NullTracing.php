@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Fixtures\Tracing;
 
 use Playwright\Tracing\Options\StartChunkOptions;
+use Playwright\Tracing\Options\StartHarOptions;
 use Playwright\Tracing\Options\StartOptions;
 use Playwright\Tracing\Options\StopChunkOptions;
 use Playwright\Tracing\Options\StopOptions;
@@ -51,6 +52,14 @@ final class NullTracing implements TracingInterface
     }
 
     public function groupEnd(): void
+    {
+    }
+
+    public function startHar(string $path, StartHarOptions|array $options = []): void
+    {
+    }
+
+    public function stopHar(): void
     {
     }
 }
