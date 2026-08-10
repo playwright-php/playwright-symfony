@@ -35,24 +35,24 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         $this->response = null;
     }
 
-    public function testAssertPageContainsUsesPageContent(): void
+    public function testAssertPageContainsUsesPageHtml(): void
     {
         $this->page = $this->createMock(PageInterface::class);
         $this->page->expects($this->once())
             ->method('content')
-            ->willReturn('<html><body>Hello World</body></html>');
+            ->willReturn('<html><body><strong>Hello World</strong></body></html>');
 
-        $this->assertPageContains('Hello World');
+        $this->assertPageContains('<strong>Hello World</strong>');
     }
 
-    public function testAssertPageNotContainsUsesPageContent(): void
+    public function testAssertPageNotContainsUsesPageHtml(): void
     {
         $this->page = $this->createMock(PageInterface::class);
         $this->page->expects($this->once())
             ->method('content')
-            ->willReturn('<html><body>Hello World</body></html>');
+            ->willReturn('<html><body><strong>Hello World</strong></body></html>');
 
-        $this->assertPageNotContains('Missing Text');
+        $this->assertPageNotContains('<em>Missing Text</em>');
     }
 
     public function testAssertSelectorExistsUsesLocator(): void
@@ -69,11 +69,13 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         $this->assertSelectorExists('#main');
     }
 
-    public function testAssertSelectorNotExistsUsesLocator(): void
+    public function testAssertSelectorNotExistsWaitsUntilCountIsZero(): void
     {
         $this->page = $this->createMock(PageInterface::class);
         $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('count')->willReturn(0);
+        $locator->expects($this->exactly(2))
+            ->method('count')
+            ->willReturn(1, 0);
 
         $this->page->expects($this->once())
             ->method('locator')
@@ -83,11 +85,13 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         $this->assertSelectorNotExists('.missing');
     }
 
-    public function testAssertSelectorVisible(): void
+    public function testAssertSelectorVisibleWaitsUntilVisible(): void
     {
         $this->page = $this->createMock(PageInterface::class);
         $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('isVisible')->willReturn(true);
+        $locator->expects($this->exactly(2))
+            ->method('isVisible')
+            ->willReturn(false, true);
 
         $this->page->expects($this->once())
             ->method('locator')
@@ -97,11 +101,13 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         $this->assertSelectorVisible('.visible');
     }
 
-    public function testAssertSelectorHidden(): void
+    public function testAssertSelectorHiddenWaitsUntilHidden(): void
     {
         $this->page = $this->createMock(PageInterface::class);
         $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('isHidden')->willReturn(true);
+        $locator->expects($this->exactly(2))
+            ->method('isVisible')
+            ->willReturn(true, false);
 
         $this->page->expects($this->once())
             ->method('locator')
@@ -111,11 +117,13 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         $this->assertSelectorHidden('.hidden');
     }
 
-    public function testAssertSelectorTextContains(): void
+    public function testAssertSelectorTextContainsWaitsForText(): void
     {
         $this->page = $this->createMock(PageInterface::class);
         $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('textContent')->willReturn('The Quick Brown Fox');
+        $locator->expects($this->exactly(2))
+            ->method('textContent')
+            ->willReturn('Loading', 'The Quick Brown Fox');
 
         $this->page->expects($this->once())
             ->method('locator')
