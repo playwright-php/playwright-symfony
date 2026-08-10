@@ -93,6 +93,8 @@ class PlaywrightKernelClient extends AbstractBrowser
     private bool $interceptorSetUp = false;
     private ?AssetServer $assetServer;
     private ?string $lastProfileToken = null;
+    private bool $profileNextRequest = false;
+    private ?bool $profilerWasEnabled = null;
 
     /**
      * @param array<string, mixed> $server
@@ -356,25 +358,21 @@ class PlaywrightKernelClient extends AbstractBrowser
         return $testContainer instanceof ContainerInterface ? $testContainer : $container;
     }
 
+    /**
+     * Enable the profiler for the next request, mirroring KernelBrowser::enableProfiler().
+     */
+    public function enableProfiler(): void
+    {
+        $this->profileNextRequest = true;
+    }
+
     public function getProfile(): ?Profile
     {
         if (null === $this->lastProfileToken) {
             return null;
         }
 
-        $container = $this->getContainer();
-
-        if (!$container?->has('profiler')) {
-            return null;
-        }
-
-        $profiler = $container->get('profiler');
-
-        if (!$profiler instanceof Profiler) {
-            return null;
-        }
-
-        return $profiler->loadProfile($this->lastProfileToken);
+        return $this->profiler()?->loadProfile($this->lastProfileToken);
     }
 
     public function getBaseUrl(): string
@@ -506,6 +504,7 @@ class PlaywrightKernelClient extends AbstractBrowser
 
         try {
             $this->lastSymfonyRequest = $symfonyRequest;
+            $this->startProfiling();
             $response = $this->kernel->handle($symfonyRequest, HttpKernelInterface::MAIN_REQUEST, false);
             $this->lastSymfonyResponse = $response;
 
@@ -513,9 +512,11 @@ class PlaywrightKernelClient extends AbstractBrowser
                 $this->kernel->terminate($symfonyRequest, $response);
             }
 
-            if ($response->headers->has('X-Debug-Token')) {
-                $this->lastProfileToken = $response->headers->get('X-Debug-Token');
-            }
+            // only after terminate: that is where the profile is written to storage
+            $this->stopProfiling();
+
+            // always reassign: a request that was not profiled must not report the previous profile
+            $this->lastProfileToken = $response->headers->get('X-Debug-Token');
 
             // Only clean the buffer if we started it
             while (ob_get_level() > $bufferLevel) {
@@ -533,6 +534,8 @@ class PlaywrightKernelClient extends AbstractBrowser
 
             return $response;
         } catch (\Throwable $e) {
+            $this->stopProfiling();
+
             // Clean up output buffers even when an exception occurs
             while (ob_get_level() > $bufferLevel) {
                 ob_end_clean();
@@ -561,6 +564,53 @@ class PlaywrightKernelClient extends AbstractBrowser
         if ($this->hookReceiver && method_exists($this->hookReceiver, 'afterResponse')) {
             $this->hookReceiver->afterResponse($response);
         }
+    }
+
+    private function startProfiling(): void
+    {
+        if (!$this->profileNextRequest) {
+            return;
+        }
+
+        $this->profileNextRequest = false;
+
+        if (!$profiler = $this->profiler()) {
+            return;
+        }
+
+        $this->profilerWasEnabled = $profiler->isEnabled();
+        $profiler->enable();
+    }
+
+    /**
+     * Restores whatever state the profiler was in before the request, so an application that
+     * collects globally is not silently switched off.
+     */
+    private function stopProfiling(): void
+    {
+        if (null === $this->profilerWasEnabled) {
+            return;
+        }
+
+        $wasEnabled = $this->profilerWasEnabled;
+        $this->profilerWasEnabled = null;
+
+        if (!$wasEnabled) {
+            $this->profiler()?->disable();
+        }
+    }
+
+    private function profiler(): ?Profiler
+    {
+        $container = $this->getContainer();
+
+        if (!$container?->has('profiler')) {
+            return null;
+        }
+
+        $profiler = $container->get('profiler');
+
+        return $profiler instanceof Profiler ? $profiler : null;
     }
 
     private function ensureInterceptorSetUp(): void
