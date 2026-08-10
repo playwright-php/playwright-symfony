@@ -15,8 +15,10 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Client;
 
 use Playwright\Browser\BrowserContextInterface;
+use Playwright\Browser\BrowserInterface;
 use Playwright\Page\PageInterface;
-use Playwright\Playwright;
+use Playwright\PlaywrightClient;
+use Playwright\PlaywrightFactory;
 
 /**
  * Registry for managing Playwright browser lifecycle, configuration, and shared instances.
@@ -51,6 +53,8 @@ use Playwright\Playwright;
  */
 class BrowserRegistry
 {
+    private ?PlaywrightClient $client = null;
+    private ?BrowserInterface $browser = null;
     private ?BrowserContextInterface $context = null;
     private ?PageInterface $page = null;
 
@@ -70,17 +74,8 @@ class BrowserRegistry
             return;
         }
 
-        $options = array_merge(
-            ['headless' => $this->headless],
-            $this->launchOptions
-        );
-
-        $this->context = match ($this->browserType) {
-            'firefox' => Playwright::firefox($options),
-            'webkit' => Playwright::webkit($options),
-            default => Playwright::chromium($options),
-        };
-
+        $this->browser ??= $this->launchBrowser();
+        $this->context = $this->browser->newContext($this->contextOptions());
         $this->page = $this->context->newPage();
     }
 
@@ -93,9 +88,15 @@ class BrowserRegistry
 
     public function stop(): void
     {
+        $this->page = null;
         $this->context?->close();
         $this->context = null;
-        $this->page = null;
+
+        // the browser and its Node process outlive the context, so they need closing too
+        $this->browser?->close();
+        $this->browser = null;
+        $this->client?->close();
+        $this->client = null;
     }
 
     public function restartContext(): void
@@ -155,6 +156,59 @@ class BrowserRegistry
         $headless = 'false' !== ($_ENV['PLAYWRIGHT_HEADLESS'] ?? $_SERVER['PLAYWRIGHT_HEADLESS'] ?? getenv('PLAYWRIGHT_HEADLESS'));
 
         return new self($browserType, $headless);
+    }
+
+    /**
+     * Launched here rather than via the Playwright facade: the facade discards the browser handle
+     * and only closes its client on shutdown, so every context needed a whole new browser.
+     */
+    private function launchBrowser(): BrowserInterface
+    {
+        $this->client = PlaywrightFactory::create();
+
+        $builder = match ($this->browserType) {
+            'firefox' => $this->client->firefox(),
+            'webkit' => $this->client->webkit(),
+            default => $this->client->chromium(),
+        };
+
+        $builder->withHeadless($this->headless);
+
+        $slowMo = $this->launchOptions['slowMo'] ?? null;
+
+        if (is_numeric($slowMo)) {
+            $builder->withSlowMo((int) $slowMo);
+        }
+
+        $args = $this->launchOptions['args'] ?? null;
+
+        if (is_array($args) && [] !== $args) {
+            $builder->withArgs(array_values(array_filter($args, 'is_string')));
+        }
+
+        return $builder->launch();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function contextOptions(): array
+    {
+        $options = $this->launchOptions['context'] ?? null;
+
+        if (!is_array($options)) {
+            return [];
+        }
+
+        $typed = [];
+
+        foreach ($options as $key => $value) {
+            if (is_string($key)) {
+                $typed[$key] = $value;
+            }
+        }
+
+        return $typed;
     }
 
     private function ensureStarted(): void
