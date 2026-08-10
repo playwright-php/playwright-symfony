@@ -552,10 +552,16 @@ class PlaywrightKernelClient extends AbstractBrowser
                     in_array($statusCode, [301, 302, 303], true)
                     || ('GET' === $request->method() && in_array($statusCode, [307, 308], true))
                 )
-                && method_exists($route, 'redirectNavigationRequest')
                 && null !== $location
                 && '' !== $location
             ) {
+                // Route::redirectNavigationRequest() is @internal in playwright-php/playwright.
+                // Depending on it is deliberate, so its absence must fail loudly: falling back to
+                // a plain fulfill() would leave the page on the 3xx with no error of any kind.
+                if (!method_exists($route, 'redirectNavigationRequest')) {
+                    throw new \RuntimeException(sprintf('Cannot follow the %d redirect to "%s": %s::redirectNavigationRequest() is missing. Upgrade playwright-php/playwright to 1.4.0 or later.', $statusCode, $location, get_debug_type($route)));
+                }
+
                 $fulfillOptions = $this->responseConverter->prepareFulfillOptions($response);
                 $headers = is_array($fulfillOptions['headers'] ?? null) ? $fulfillOptions['headers'] : [];
                 unset($headers['location'], $headers['Location']);
