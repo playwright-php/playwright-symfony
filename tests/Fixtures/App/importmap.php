@@ -14,7 +14,19 @@ declare(strict_types=1);
 
 return [
     'app' => [
-        'path' => './styles/app.css',
+        'path' => './app.js',
         'entrypoint' => true,
+    ],
+    '@symfony/stimulus-bundle' => [
+        'path' => '@symfony/stimulus-bundle/loader.js',
+    ],
+    '@symfony/ux-live-component' => [
+        'path' => '@symfony/ux-live-component/live_controller.js',
+    ],
+    '@hotwired/stimulus' => [
+        'version' => '3.2.2',
+    ],
+    '@hotwired/turbo' => [
+        'version' => '8.0.23',
     ],
 ];
