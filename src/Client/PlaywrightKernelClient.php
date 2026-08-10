@@ -25,6 +25,7 @@ use Psr\Log\NullLogger;
 use Symfony\Component\BrowserKit\AbstractBrowser;
 use Symfony\Component\BrowserKit\Request as BrowserKitRequest;
 use Symfony\Component\BrowserKit\Response as BrowserKitResponse;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Form;
 use Symfony\Component\DomCrawler\Link;
@@ -332,21 +333,38 @@ class PlaywrightKernelClient extends AbstractBrowser
         return $this->lastSymfonyResponse;
     }
 
+    /**
+     * The test container is preferred when available: it exposes private services, which is what
+     * tests need. Mirrors Symfony's KernelBrowser::getContainer().
+     *
+     * Null when the kernel does not expose a container (it is only typed as HttpKernelInterface).
+     */
+    public function getContainer(): ?ContainerInterface
+    {
+        if (!$this->kernel instanceof KernelInterface) {
+            return null;
+        }
+
+        $container = $this->kernel->getContainer();
+
+        if (!$container->has('test.service_container')) {
+            return $container;
+        }
+
+        $testContainer = $container->get('test.service_container');
+
+        return $testContainer instanceof ContainerInterface ? $testContainer : $container;
+    }
+
     public function getProfile(): ?Profile
     {
         if (null === $this->lastProfileToken) {
             return null;
         }
 
-        // Kernel must implement getContainer() - this is the case for Symfony\Component\HttpKernel\KernelInterface implementations
-        if (!$this->kernel instanceof KernelInterface) {
-            return null;
-        }
+        $container = $this->getContainer();
 
-        // Access the container from the kernel to get the profiler service
-        $container = $this->kernel->getContainer();
-
-        if (!$container->has('profiler')) {
+        if (!$container?->has('profiler')) {
             return null;
         }
 
