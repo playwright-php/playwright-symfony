@@ -62,6 +62,10 @@ class TestKernel extends BaseKernel
                 'enabled' => true,
             ],
             'test' => true,
+            'profiler' => [
+                'enabled' => true,
+                'collect' => false,
+            ],
             'asset_mapper' => [
                 'server' => true,
                 'paths' => [
@@ -89,6 +93,10 @@ class TestKernel extends BaseKernel
 
         $services
             ->load('Playwright\\Symfony\\Tests\\Fixtures\\App\\Service\\', __DIR__.'/Service/*')
+            ->public();
+
+        $services
+            ->load('Playwright\\Symfony\\Tests\\Fixtures\\App\\EventListener\\', __DIR__.'/EventListener/*')
             ->public();
 
         // Minimal Playwright config for tests

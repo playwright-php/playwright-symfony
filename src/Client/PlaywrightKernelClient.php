@@ -34,6 +34,7 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\HttpKernel\Profiler\Profile;
 use Symfony\Component\HttpKernel\Profiler\Profiler;
+use Symfony\Component\HttpKernel\TerminableInterface;
 
 /**
  * Internal BrowserKit client that intercepts browser requests and routes them through Symfony's HttpKernel.
@@ -54,7 +55,7 @@ use Symfony\Component\HttpKernel\Profiler\Profiler;
  * 2. Browser makes HTTP request → intercepted via BrowserRegistry->setupRouting()
  * 3. Request matched against interceptedHosts → if matched, proceeds to step 4
  * 4. AssetServer checks if request is for static asset → if yes, serves directly
- * 5. Otherwise: RequestConverter → HttpKernel->handle() → ResponseConverter → browser
+ * 5. Otherwise: RequestConverter → HttpKernel->handle() → Kernel->terminate() → ResponseConverter → browser
  * 6. Test can inspect via getLastSymfonyRequest(), getLastSymfonyResponse()
  *
  * Key features:
@@ -489,6 +490,10 @@ class PlaywrightKernelClient extends AbstractBrowser
             $this->lastSymfonyRequest = $symfonyRequest;
             $response = $this->kernel->handle($symfonyRequest, HttpKernelInterface::MAIN_REQUEST, false);
             $this->lastSymfonyResponse = $response;
+
+            if ($this->kernel instanceof TerminableInterface) {
+                $this->kernel->terminate($symfonyRequest, $response);
+            }
 
             if ($response->headers->has('X-Debug-Token')) {
                 $this->lastProfileToken = $response->headers->get('X-Debug-Token');
