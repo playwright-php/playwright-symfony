@@ -16,6 +16,8 @@ namespace Playwright\Symfony\Tests\Client;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Playwright\Browser\BrowserContextInterface;
+use Playwright\PlaywrightClient;
 use Playwright\Symfony\Client\BrowserRegistry;
 use Playwright\Symfony\Tests\Fixtures\Browser\DummyBrowserContext;
 use Playwright\Symfony\Tests\Fixtures\Browser\DummyPage;
@@ -130,6 +132,28 @@ class BrowserRegistryTest extends TestCase
         $this->assertTrue($context->closed);
         $this->assertNull($refContext->getValue($browser));
         $this->assertNull($refPage->getValue($browser));
+    }
+
+    public function testStopClosesTheClientWhenTheContextCannotBeClosed(): void
+    {
+        $context = $this->createMock(BrowserContextInterface::class);
+        $context->method('close')->willThrowException(new \RuntimeException('connection is broken'));
+
+        $client = $this->createMock(PlaywrightClient::class);
+        $client->expects($this->once())->method('close');
+
+        $browser = new BrowserRegistry('chromium', true);
+
+        $refContext = new \ReflectionProperty(BrowserRegistry::class, 'context');
+        $refContext->setValue($browser, $context);
+
+        $refClient = new \ReflectionProperty(BrowserRegistry::class, 'client');
+        $refClient->setValue($browser, $client);
+
+        $browser->stop();
+
+        $this->assertNull($refContext->getValue($browser));
+        $this->assertNull($refClient->getValue($browser));
     }
 
     public function testEqualsReturnsTrueForSameBrowserConfiguration(): void
