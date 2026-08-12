@@ -34,18 +34,6 @@ trait PlaywrightTestAssertionsTrait
         $this->assertStringNotContainsString($text, $content);
     }
 
-    protected function assertSelectorExists(string $selector): void
-    {
-        $count = $this->getPage()->locator($selector)->count();
-        $this->assertGreaterThan(0, $count, "Selector '$selector' not found");
-    }
-
-    protected function assertSelectorNotExists(string $selector): void
-    {
-        $count = $this->getPage()->locator($selector)->count();
-        $this->assertSame(0, $count, "Selector '$selector' should not exist");
-    }
-
     protected function assertSelectorVisible(string $selector): void
     {
         $this->assertTrue($this->getPage()->locator($selector)->isVisible(), "Selector '$selector' is not visible");
@@ -56,23 +44,11 @@ trait PlaywrightTestAssertionsTrait
         $this->assertTrue($this->getPage()->locator($selector)->isHidden(), "Selector '$selector' is not hidden");
     }
 
-    protected function assertSelectorTextContains(string $selector, string $text): void
-    {
-        $this->assertStringContainsString($text, $this->getPage()->locator($selector)->textContent() ?? '', "Selector '$selector' does not contain text '$text'");
-    }
-
     protected function assertResponseStatusCode(int $expectedCode): void
     {
         $response = $this->getLastResponse();
         $this->assertNotNull($response, 'No response available');
         $this->assertSame($expectedCode, $response->getStatusCode(), sprintf('Expected status code %d, got %d', $expectedCode, $response->getStatusCode()));
-    }
-
-    protected function assertResponseIsSuccessful(): void
-    {
-        $response = $this->getLastResponse();
-        $this->assertNotNull($response, 'No response available');
-        $this->assertTrue($response->isSuccessful(), sprintf('Expected successful response, got %d', $response->getStatusCode()));
     }
 
     protected function assertResponseIsRedirect(): void

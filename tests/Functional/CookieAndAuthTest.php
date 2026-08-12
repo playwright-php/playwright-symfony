@@ -17,6 +17,7 @@ namespace Playwright\Symfony\Tests\Functional;
 use Playwright\Symfony\Test\PlaywrightTestCase;
 use Playwright\Symfony\Tests\Fixtures\App\TestKernel;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 final class CookieAndAuthTest extends PlaywrightTestCase
 {
@@ -47,5 +48,28 @@ final class CookieAndAuthTest extends PlaywrightTestCase
 
         $this->clearCookies();
         self::assertNull($this->getCookie('notice'));
+    }
+
+    public function testLoginUserAuthenticatesTheRealSymfonySecurityFirewall(): void
+    {
+        $provider = static::getContainer()->get('security.user.provider.concrete.test_users');
+        self::assertInstanceOf(UserProviderInterface::class, $provider);
+        $user = $provider->loadUserByIdentifier('admin@example.test');
+
+        $this->loginUser($user);
+        $session = $this->client->getSession();
+        self::assertNotNull($session);
+        self::assertSame($session->getId(), $this->getCookie($session->getName()));
+        self::assertNotNull($session->get('_security_main'));
+        self::assertBrowserHasCookie($session->getName());
+
+        $this->visit('/cookie');
+        $this->assertPageContains('"'.$session->getName().'":"'.$session->getId().'"');
+
+        $this->visit('/secure');
+
+        self::assertResponseIsSuccessful();
+        self::assertRouteSame('secure');
+        $this->assertPageContains('Authenticated as admin@example.test');
     }
 }

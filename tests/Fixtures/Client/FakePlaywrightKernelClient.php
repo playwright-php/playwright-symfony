@@ -61,9 +61,18 @@ final class FakePlaywrightKernelClient extends PlaywrightKernelClient
         $this->calls['authenticate'][] = [$identifier, $context];
     }
 
-    public function logout(): void
+    public function loginUser(object $user, string $firewallContext = 'main', array $tokenAttributes = []): static
     {
-        $this->calls['logout'][] = true;
+        $this->calls['loginUser'][] = [$user, $firewallContext, $tokenAttributes];
+
+        return $this;
+    }
+
+    public function logout(string $firewallContext = 'main'): static
+    {
+        $this->calls['logout'][] = $firewallContext;
+
+        return $this;
     }
 
     public function getLastSymfonyRequest(): ?SymfonyRequest

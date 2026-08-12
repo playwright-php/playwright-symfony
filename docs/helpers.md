@@ -310,6 +310,41 @@ public function testClearAllCookies(): void
 }
 ```
 
+### `loginUser(UserInterface $user, string $firewallContext = 'main', array $tokenAttributes = []): static`
+
+Authenticate a Symfony user through the application's real firewall. The signature and no-session behavior match
+Symfony's `KernelBrowser::loginUser()`: the token is always written to the untracked token storage; when sessions are
+available it is also serialized under `_security_<firewallContext>` and the session cookie is synchronized with the
+browser.
+
+SecurityBundle is optional for the package. Calling this helper without it throws a `LogicException` with the command
+to install it. Once installed, SecurityBundle must be enabled:
+
+```bash
+composer require symfony/security-bundle
+```
+
+```php
+use App\Repository\UserRepository;
+
+public function testAuthenticatedAccess(): void
+{
+    $user = static::getContainer()
+        ->get(UserRepository::class)
+        ->findOneBy(['email' => 'admin@example.com']);
+    self::assertNotNull($user);
+
+    $this->loginUser($user, 'main', ['source' => 'playwright-test']);
+    $this->visit('/admin/users');
+
+    self::assertResponseIsSuccessful();
+    $this->assertPageContains('User Management');
+}
+```
+
+The user and every object referenced by it must be serializable when the firewall uses a session, just as with
+Symfony's standard test client. The method returns the test case for fluent setup.
+
 ### `authenticate(string $identifier = 'user', array $context = []): void`
 
 Convenience helper that sets an `AUTH` cookie with user information. This is intended as a starting point - you'll
@@ -338,9 +373,11 @@ public function testAuthenticatedAccess(): void
 **Note:** The `authenticate()` method stores data in an `AUTH` cookie as JSON. You'll need to handle this cookie in your
 application's security layer or override this method for your authentication mechanism.
 
-### `logout(): void`
+### `logout(string $firewallContext = 'main'): static`
 
-Remove the authentication cookie.
+Clear both authentication mechanisms: the legacy `AUTH` cookie and Symfony's real firewall token. For a stateful
+firewall, the selected `_security_<firewallContext>` session entry and the browser session cookie are also removed.
+The method returns the test case.
 
 **Example:**
 
@@ -351,7 +388,7 @@ public function testLogout(): void
     $this->visit('/dashboard');
     $this->assertPageContains('Dashboard');
 
-    $this->logout();
+    $this->logout('main');
     $this->visit('/dashboard');
     $this->assertPageContains('Please log in');
 }

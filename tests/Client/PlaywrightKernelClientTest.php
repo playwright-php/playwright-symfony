@@ -30,10 +30,21 @@ use Playwright\Symfony\Tests\Client\Fixtures\FakePage;
 use Playwright\Symfony\Tests\Client\Fixtures\TestBrowserRegistry;
 use Playwright\Symfony\Tests\Fixtures\MockRequest;
 use Playwright\Symfony\Util\CookieJarSync;
+use Symfony\Bundle\FrameworkBundle\Test\TestBrowserToken;
+use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\SessionFactoryInterface;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\KernelInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Symfony\Component\Security\Core\User\InMemoryUser;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 #[CoversClass(PlaywrightKernelClient::class)]
 #[CoversClass(BrowserRegistry::class)]
@@ -460,6 +471,7 @@ class PlaywrightKernelClientTest extends TestCase
         $lastRequest = $client->getLastSymfonyRequest();
 
         self::assertNotNull($lastRequest);
+        self::assertSame($lastRequest, $client->getRequest());
         self::assertInstanceOf(SymfonyRequest::class, $lastRequest);
         self::assertSame('/test', $lastRequest->getPathInfo());
     }
@@ -485,6 +497,7 @@ class PlaywrightKernelClientTest extends TestCase
         $lastResponse = $client->getLastSymfonyResponse();
 
         self::assertNotNull($lastResponse);
+        self::assertSame($lastResponse, $client->getResponse());
         self::assertInstanceOf(SymfonyResponse::class, $lastResponse);
         self::assertSame('test response content', $lastResponse->getContent());
     }
@@ -575,6 +588,367 @@ class PlaywrightKernelClientTest extends TestCase
 
         $client->logout();
         self::assertNull($client->getCookie('AUTH'));
+    }
+
+    public function testLogoutClearsTheSecuritySessionAndItsCookie(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $tokenStorage = new TokenStorage();
+
+        $container = new Container();
+        $container->set('session.factory', new class($session) implements SessionFactoryInterface {
+            public function __construct(private readonly SessionInterface $session)
+            {
+            }
+
+            public function createSession(): SessionInterface
+            {
+                return $this->session;
+            }
+        });
+        $container->set('security.untracked_token_storage', $tokenStorage);
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        $session->start();
+        $session->set('_security_main', 'a-serialized-token');
+        $session->save();
+        $client->setCookie($session->getName(), $session->getId());
+        $tokenStorage->setToken(new UsernamePasswordToken(new InMemoryUser('u', null), 'main'));
+
+        $client->logout();
+
+        self::assertNull($session->get('_security_main'));
+        self::assertNull($tokenStorage->getToken());
+        self::assertNull($client->getCookie($session->getName()));
+    }
+
+    public function testLogoutTargetsTheGivenFirewallContext(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+
+        $container = new Container();
+        $container->set('session.factory', new class($session) implements SessionFactoryInterface {
+            public function __construct(private readonly SessionInterface $session)
+            {
+            }
+
+            public function createSession(): SessionInterface
+            {
+                return $this->session;
+            }
+        });
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        $session->start();
+        $session->set('_security_admin', 'admin-token');
+        $session->set('_security_main', 'main-token');
+        $session->save();
+
+        $client->logout('admin');
+
+        self::assertNull($session->get('_security_admin'));
+        self::assertSame('main-token', $session->get('_security_main'));
+    }
+
+    public function testLogoutOnlyClearsCookiesWhenSessionsAreUnavailable(): void
+    {
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn(new Container());
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        $client->authenticate('user');
+
+        self::assertSame($client, $client->logout());
+        self::assertNull($client->getCookie('AUTH'));
+    }
+
+    public function testLoginUserStoresTheSymfonySecurityTokenAndSessionCookie(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $tokenStorage = new TokenStorage();
+
+        $container = new Container();
+        $container->set('session.factory', new class($session) implements SessionFactoryInterface {
+            public function __construct(private readonly SessionInterface $session)
+            {
+            }
+
+            public function createSession(): SessionInterface
+            {
+                return $this->session;
+            }
+        });
+        $container->set('security.untracked_token_storage', $tokenStorage);
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $user = new InMemoryUser('admin@example.test', null, ['ROLE_ADMIN']);
+
+        $returned = $client->loginUser($user, 'admin', ['source' => 'unit-test']);
+
+        self::assertSame($client, $returned);
+
+        $token = $tokenStorage->getToken();
+        self::assertInstanceOf(TestBrowserToken::class, $token);
+        self::assertSame($user, $token->getUser());
+        self::assertSame('admin', $token->getFirewallName());
+        self::assertSame(['source' => 'unit-test'], $token->getAttributes());
+
+        $storedToken = unserialize((string) $session->get('_security_admin'));
+        self::assertEquals($token, $storedToken);
+        self::assertSame($session->getId(), $client->getCookie($session->getName()));
+    }
+
+    public function testLoginUserWithoutSessionMatchesSymfonyKernelBrowserBehavior(): void
+    {
+        $tokenStorage = new TokenStorage();
+        $container = new Container();
+        $container->set('security.untracked_token_storage', $tokenStorage);
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $user = new InMemoryUser('stateless@example.test', null, ['ROLE_USER']);
+
+        $returned = $client->loginUser($user);
+
+        self::assertSame($client, $returned);
+        self::assertSame($user, $tokenStorage->getToken()?->getUser());
+        self::assertNull($client->getCookie('MOCKSESSID'));
+    }
+
+    public function testLoginUserRejectsObjectsThatAreNotSymfonyUsers(): void
+    {
+        $container = new Container();
+        $container->set('security.untracked_token_storage', new TokenStorage());
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('must be an instance of "Symfony\\Component\\Security\\Core\\User\\UserInterface", "stdClass" provided');
+
+        $client->loginUser(new \stdClass());
+    }
+
+    public function testLoginUserRequiresSecurityBundleToBeEnabled(): void
+    {
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn(new Container());
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('The SecurityBundle is not registered in your application. Try running "composer require symfony/security-bundle".');
+
+        $client->loginUser(new InMemoryUser('user@example.test', null));
+    }
+
+    public function testLoginUserRejectsInvalidTokenStorageService(): void
+    {
+        $container = new Container();
+        $container->set('security.untracked_token_storage', new \stdClass());
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('must implement "Symfony\\Component\\Security\\Core\\Authentication\\Token\\Storage\\TokenStorageInterface"');
+
+        $client->loginUser(new InMemoryUser('user@example.test', null));
+    }
+
+    public function testLoginUserUsesTheTestServiceContainer(): void
+    {
+        $tokenStorage = new TokenStorage();
+        $testContainer = new Container();
+        $testContainer->set('security.untracked_token_storage', $tokenStorage);
+
+        $container = new Container();
+        $container->set('test.service_container', $testContainer);
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $user = new InMemoryUser('user@example.test', null);
+
+        self::assertSame($client, $client->loginUser($user));
+        self::assertSame($user, $tokenStorage->getToken()?->getUser());
+    }
+
+    public function testLoginUserRequiresAKernelInterface(): void
+    {
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse();
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('requires a Symfony KernelInterface instance');
+
+        $client->loginUser(new InMemoryUser('user@example.test', null));
+    }
+
+    public function testGetSessionRejectsInvalidSessionFactoryService(): void
+    {
+        $container = new Container();
+        $container->set('session.factory', new \stdClass());
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('must implement "Symfony\\Component\\HttpFoundation\\Session\\SessionFactoryInterface"');
+
+        $client->getSession();
+    }
+
+    public function testLoginUserReportsAnUnserializableUser(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $container = new Container();
+        $container->set('session.factory', new class($session) implements SessionFactoryInterface {
+            public function __construct(private readonly SessionInterface $session)
+            {
+            }
+
+            public function createSession(): SessionInterface
+            {
+                return $this->session;
+            }
+        });
+        $container->set('security.untracked_token_storage', new TokenStorage());
+
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('getContainer')->willReturn($container);
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $user = new class implements UserInterface {
+            private \Closure $callback;
+
+            public function __construct()
+            {
+                $this->callback = static fn (): null => null;
+            }
+
+            public function getRoles(): array
+            {
+                return ['ROLE_USER'];
+            }
+
+            public function getUserIdentifier(): string
+            {
+                return 'unserializable@example.test';
+            }
+
+            // Required by symfony/security-core < 8.0.
+            public function eraseCredentials(): void
+            {
+            }
+        };
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Cannot store the security token in the session');
+
+        $client->loginUser($user);
+    }
+
+    public function testLogoutIsFluent(): void
+    {
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse('ok');
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        self::assertSame($client, $client->logout());
     }
 
     public function testGetProfileReturnsNullWhenNoProfileToken(): void

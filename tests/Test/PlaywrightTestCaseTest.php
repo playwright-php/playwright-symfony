@@ -26,9 +26,11 @@ use Playwright\Symfony\Tests\Fixtures\MockRequest;
 use Playwright\Symfony\Tests\Fixtures\Tests\ConcretePlaywrightTestCase;
 use Playwright\Symfony\Tests\Fixtures\Tests\TestablePlaywrightTestCase;
 use Psr\Log\NullLogger;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Symfony\Component\Security\Core\User\InMemoryUser;
 
 #[CoversClass(PlaywrightTestCase::class)]
 #[CoversClass(RequestConverter::class)]
@@ -51,6 +53,14 @@ class PlaywrightTestCaseTest extends TestCase
         $this->lifecycleTestCase->setTestClient($this->client);
         $this->lifecycleTestCase->setTestBrowser($this->browser);
         $this->lifecycleTestCase->setTestLogger(new NullLogger());
+    }
+
+    public function testExtendsWebTestCaseAndExposesSymfonyWebAssertions(): void
+    {
+        self::assertTrue(is_subclass_of(PlaywrightTestCase::class, WebTestCase::class));
+        self::assertTrue(method_exists(PlaywrightTestCase::class, 'assertResponseIsSuccessful'));
+        self::assertTrue(method_exists(PlaywrightTestCase::class, 'assertRouteSame'));
+        self::assertTrue(method_exists(PlaywrightTestCase::class, 'assertSelectorExists'));
     }
 
     public function testConvertToSymfonyRequestHandlesGetRequest(): void
@@ -277,7 +287,7 @@ class PlaywrightTestCaseTest extends TestCase
         $this->lifecycleTestCase->publicClearCookies();
         $this->lifecycleTestCase->publicClearCookie('name', 'example.com', '/path');
         $this->lifecycleTestCase->publicAuthenticate('user', ['role' => 'admin']);
-        $this->lifecycleTestCase->publicLogout();
+        $returned = $this->lifecycleTestCase->publicLogout('admin');
 
         $this->assertSame(
             [
@@ -308,7 +318,23 @@ class PlaywrightTestCaseTest extends TestCase
             $this->client->calls['authenticate'] ?? []
         );
 
-        $this->assertSame([true], $this->client->calls['logout'] ?? []);
+        $this->assertSame($this->lifecycleTestCase, $returned);
+        $this->assertSame(['admin'], $this->client->calls['logout'] ?? []);
+    }
+
+    public function testLoginUserDelegatesToClientAndReturnsTheTestCase(): void
+    {
+        $user = new InMemoryUser('admin@example.test', null);
+
+        $returned = $this->lifecycleTestCase->publicLoginUser($user, 'admin', ['role' => 'ROLE_ADMIN']);
+
+        $this->assertSame($this->lifecycleTestCase, $returned);
+        $this->assertSame(
+            [
+                [$user, 'admin', ['role' => 'ROLE_ADMIN']],
+            ],
+            $this->client->calls['loginUser'] ?? []
+        );
     }
 
     public function testLastRequestAndResponseDelegatesToClient(): void

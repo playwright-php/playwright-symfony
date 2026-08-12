@@ -23,7 +23,7 @@ use Playwright\Symfony\Client\ResponseConverter;
 use Playwright\Symfony\Test\Assert\PlaywrightTestAssertionsTrait;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
@@ -38,7 +38,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  * - BrowserKit-compatible API for familiar testing patterns
  *
  * Architecture overview:
- * - Extends KernelTestCase → boots Symfony kernel in test environment
+ * - Extends WebTestCase → uses Symfony's functional-test lifecycle and test container
  * - Creates shared BrowserRegistry → manages browser lifecycle across tests
  * - Creates PlaywrightKernelClient → intercepts requests and routes through kernel
  * - Provides $this->client for BrowserKit-style interactions
@@ -101,7 +101,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  *
  * @author Simon André <smn.andre@gmail.com>
  */
-abstract class PlaywrightTestCase extends KernelTestCase
+abstract class PlaywrightTestCase extends WebTestCase
 {
     use PlaywrightTestAssertionsTrait;
 
@@ -162,6 +162,7 @@ abstract class PlaywrightTestCase extends KernelTestCase
             $this->playwrightLogger,
             $this->debugLogging,
         );
+        self::getClient($this->client);
     }
 
     protected function tearDown(): void
@@ -276,9 +277,24 @@ abstract class PlaywrightTestCase extends KernelTestCase
         $this->client->authenticate($identifier, $context);
     }
 
-    protected function logout(): void
+    /**
+     * @param \Symfony\Component\Security\Core\User\UserInterface $user
+     * @param array<string, mixed>                                $tokenAttributes
+     *
+     * @return $this
+     */
+    protected function loginUser(object $user, string $firewallContext = 'main', array $tokenAttributes = []): static
     {
-        $this->client->logout();
+        $this->client->loginUser($user, $firewallContext, $tokenAttributes);
+
+        return $this;
+    }
+
+    protected function logout(string $firewallContext = 'main'): static
+    {
+        $this->client->logout($firewallContext);
+
+        return $this;
     }
 
     protected function getLastRequest(): ?SymfonyRequest

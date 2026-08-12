@@ -32,6 +32,10 @@ final class HelperAssertionsTest extends PlaywrightTestCase
 
         $this->visit('/helper-demo');
 
+        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(200);
+        self::assertRouteSame('helper_demo');
+        self::assertPageTitleSame('Helper Demo');
         $this->assertPageContains('Helper Demo Ready');
         $this->assertPageNotContains('text that does not exist');
         $this->assertSelectorExists('#visible-text');

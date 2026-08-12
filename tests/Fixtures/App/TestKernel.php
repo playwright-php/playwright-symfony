@@ -17,6 +17,7 @@ namespace Playwright\Symfony\Tests\Fixtures\App;
 use Playwright\Symfony\PlaywrightSymfonyBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
+use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -38,6 +39,7 @@ class TestKernel extends BaseKernel
     public function registerBundles(): iterable
     {
         yield new FrameworkBundle();
+        yield new SecurityBundle();
         yield new \Symfony\Bundle\TwigBundle\TwigBundle();
         yield new StimulusBundle();
         yield new TwigComponentBundle();
@@ -114,6 +116,31 @@ class TestKernel extends BaseKernel
 
         $container->extension('turbo', [
             'broadcast' => false,
+        ]);
+
+        $container->extension('security', [
+            'providers' => [
+                'test_users' => [
+                    'memory' => [
+                        'users' => [
+                            'admin@example.test' => [
+                                'password' => 'unused',
+                                'roles' => ['ROLE_ADMIN'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'firewalls' => [
+                'main' => [
+                    'lazy' => true,
+                    'provider' => 'test_users',
+                    'http_basic' => [],
+                ],
+            ],
+            'access_control' => [
+                ['path' => '^/secure$', 'roles' => 'ROLE_ADMIN'],
+            ],
         ]);
 
         // Register controllers as services with autowiring/autoconfiguration
@@ -196,6 +223,10 @@ class TestKernel extends BaseKernel
 
         $routes->add('protected', '/protected')
             ->controller([Controller\ProtectedController::class, 'index']);
+
+        $routes->add('secure', '/secure')
+            ->controller(Controller\SecureController::class)
+            ->methods(['GET']);
 
         $routes->add('form', '/form')
             ->controller([Controller\FormController::class, 'show'])
