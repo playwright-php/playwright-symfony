@@ -1,0 +1,159 @@
+name: "Nightly"
+
+on:
+  schedule:
+    - cron: '43 3 * * *'  # At 03:43 every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  # Never cancel: a scheduled run that gets killed by a manual dispatch loses the
+  # only signal of the day.
+  cancel-in-progress: false
+
+jobs:
+  browser-suite:
+    name: "Browser suite (${{ matrix.leg }})"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The bundle sits between two moving parts, and push CI pins neither: it
+        # takes whatever the constraints resolve to on the day someone pushes.
+        #
+        # lib-floor:  the lowest playwright-php/playwright the constraint allows.
+        # lib-latest: the highest it allows today.
+        # js-latest:  newest Playwright JS published, whatever the bridge asked
+        #             for, as a canary on the upstream release itself.
+        leg: ['lib-floor', 'lib-latest', 'js-latest']
+      fail-fast: false
+    steps:
+      - name: "Git: checkout"
+        uses: actions/checkout@v4
+
+      - name: "PHP: setup 8.4"
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: "Node: setup"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The floor is derived from the declaration, never written twice: changing
+      # composer.json is enough to move what this job tests.
+      - name: "Composer: resolve the target"
+        id: target
+        env:
+          LEG: ${{ matrix.leg }}
+        run: |
+          constraint=$(php -r 'echo json_decode(file_get_contents("composer.json"), true)["require"]["playwright-php/playwright"];')
+          echo "Declared constraint: $constraint"
+          if [ "$LEG" != "lib-floor" ]; then
+            echo "with=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          floor=$(printf '%s' "$constraint" | sed 's/^[^0-9]*//')
+          case "$floor" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            [0-9]*.[0-9]*)        floor="$floor.0" ;;
+            [0-9]*)               floor="$floor.0.0" ;;
+            *) echo "::error::no floor version in constraint '$constraint'"; exit 1 ;;
+          esac
+          echo "Floor resolves to $floor"
+          echo "with=playwright-php/playwright:$floor" >> "$GITHUB_OUTPUT"
+
+      - name: "Composer: install"
+        env:
+          WITH: ${{ steps.target.outputs.with }}
+        run: |
+          if [ -n "$WITH" ]; then
+            composer update --with "$WITH" --prefer-dist --no-interaction --no-progress
+          else
+            composer update --prefer-dist --no-interaction --no-progress
+          fi
+
+      # Deliberately not playwright-php/setup-playwright: that action installs a
+      # Playwright JS version of its own choosing, which would decouple the
+      # browsers from the bridge shipped by the library under test. The library's
+      # own installer is the only thing that keeps the two in step.
+      - name: "Playwright: install the bridge"
+        run: php vendor/playwright-php/playwright/bin/playwright-install
+
+      - name: "Playwright: force the newest JS"
+        if: matrix.leg == 'js-latest'
+        run: npm install --prefix vendor/playwright-php/playwright/bin --no-audit --no-fund --save-exact playwright@latest
+
+      - name: "Versions under test"
+        id: versions
+        run: |
+          library=$(composer show playwright-php/playwright --format=json | php -r 'echo json_decode(stream_get_contents(STDIN), true)["versions"][0];')
+          js=$(node -p "require('./vendor/playwright-php/playwright/bin/node_modules/playwright/package.json').version")
+          echo "library=$library" >> "$GITHUB_OUTPUT"
+          echo "js=$js"           >> "$GITHUB_OUTPUT"
+          echo "playwright-php/playwright $library, Playwright JS $js"
+
+      # Guards the targeting itself: without this a leg could silently resolve to
+      # the same versions as its neighbour and stay green while proving nothing.
+      - name: "Verify the leg hit its target"
+        env:
+          LEG: ${{ matrix.leg }}
+          WITH: ${{ steps.target.outputs.with }}
+          LIBRARY: ${{ steps.versions.outputs.library }}
+          JS: ${{ steps.versions.outputs.js }}
+        run: |
+          case "$LEG" in
+            lib-floor)
+              want="v${WITH#*:}"
+              [ "$LIBRARY" = "$want" ] || { echo "::error::expected $want, composer installed $LIBRARY"; exit 1; }
+              ;;
+            js-latest)
+              want=$(npm view playwright version)
+              [ "$JS" = "$want" ] || { echo "::error::expected Playwright JS $want, bridge has $JS"; exit 1; }
+              ;;
+          esac
+          echo "Target confirmed"
+
+      - name: "Playwright: cache browsers"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.versions.outputs.js }}
+
+      - name: "Playwright: install browsers"
+        timeout-minutes: 15
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 300 php vendor/playwright-php/playwright/bin/playwright-install --with-deps; then
+              exit 0
+            fi
+            echo "Attempt $attempt failed or timed out after 5 minutes, retrying."
+          done
+          exit 1
+
+      - name: "PHPUnit: integration"
+        run: composer test-integration
+
+      - name: "PHPUnit: functional"
+        run: composer test-functional
+
+      - name: "Summary"
+        if: always()
+        env:
+          LEG: ${{ matrix.leg }}
+          LIBRARY: ${{ steps.versions.outputs.library }}
+          JS: ${{ steps.versions.outputs.js }}
+          STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Leg | \`$LEG\` |"
+            echo "| playwright-php/playwright | \`${LIBRARY:-unresolved}\` |"
+            echo "| Playwright JS | \`${JS:-unresolved}\` |"
+            echo "| Result | $STATUS |"
+          } >> "$GITHUB_STEP_SUMMARY"
