@@ -88,14 +88,18 @@ class BrowserRegistry
 
     public function stop(): void
     {
-        $this->page = null;
-        $this->context?->close();
-        $this->context = null;
+        // each close is best-effort: a broken connection - an exception thrown while handling a
+        // routed request is re-raised by every later call - would otherwise abort before the
+        // client is closed, leaving its Node process running for the rest of the PHP process
+        $this->closeQuietly($this->context);
 
         // the browser and its Node process outlive the context, so they need closing too
-        $this->browser?->close();
+        $this->closeQuietly($this->browser);
+        $this->closeQuietly($this->client);
+
+        $this->page = null;
+        $this->context = null;
         $this->browser = null;
-        $this->client?->close();
         $this->client = null;
     }
 
@@ -209,6 +213,15 @@ class BrowserRegistry
         }
 
         return $typed;
+    }
+
+    private function closeQuietly(BrowserContextInterface|BrowserInterface|PlaywrightClient|null $closable): void
+    {
+        try {
+            $closable?->close();
+        } catch (\Throwable) {
+            // already unusable, nothing left to salvage
+        }
     }
 
     private function ensureStarted(): void
