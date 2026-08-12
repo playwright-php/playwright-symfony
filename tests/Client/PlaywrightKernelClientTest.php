@@ -921,6 +921,11 @@ class PlaywrightKernelClientTest extends TestCase
             {
                 return 'unserializable@example.test';
             }
+
+            // Required by symfony/security-core < 8.0.
+            public function eraseCredentials(): void
+            {
+            }
         };
 
         $this->expectException(\LogicException::class);
