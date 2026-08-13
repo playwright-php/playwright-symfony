@@ -505,6 +505,23 @@ class PlaywrightKernelClientTest extends TestCase
         self::assertSame($this->page, $page);
     }
 
+    public function testContextReturnsContextFromBrowser(): void
+    {
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse('ok');
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+
+        self::assertSame($this->context, $client->context());
+    }
+
     public function testGetLastSymfonyRequestReturnsLastRequest(): void
     {
         $client = new PlaywrightKernelClient(

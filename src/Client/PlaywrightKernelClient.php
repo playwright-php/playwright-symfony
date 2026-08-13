@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Client;
 
+use Playwright\Browser\BrowserContextInterface;
 use Playwright\Network\RequestInterface;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Client\Interception\AssetServer;
@@ -59,7 +60,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
  *
  * How request interception works:
  * 1. User calls visit('/path') → navigates browser to http://localhost/path
- * 2. Browser makes HTTP request → intercepted via BrowserRegistry->setupRouting()
+ * 2. Browser makes HTTP request → intercepted via BrowserSessionInterface->setupRouting()
  * 3. Request matched against interceptedHosts → if matched, proceeds to step 4
  * 4. AssetServer checks if request is for static asset → if yes, serves directly
  * 5. Otherwise: RequestConverter → HttpKernel->handle() → Kernel->terminate() → ResponseConverter → browser
@@ -167,13 +168,14 @@ class PlaywrightKernelClient extends AbstractBrowser
     private bool $profileNextRequest = false;
     private ?bool $profilerWasEnabled = null;
     private bool $catchExceptions = true;
+    private readonly BrowserSessionInterface $session;
 
     /**
      * @param array<string, mixed> $server
      * @param string[]|null        $interceptedHosts
      */
     public function __construct(
-        private readonly BrowserRegistry $browser,
+        BrowserSessionInterface $browser,
         private readonly HttpKernelInterface $kernel,
         private readonly RequestConverter $requestConverter,
         private readonly ResponseConverter $responseConverter,
@@ -187,6 +189,8 @@ class PlaywrightKernelClient extends AbstractBrowser
     ) {
         parent::__construct($server);
 
+        $this->session = $browser;
+
         if (null !== $interceptedHosts) {
             $this->interceptedHosts = $interceptedHosts;
         }
@@ -195,7 +199,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         $this->assetServer = $assetServer;
         $this->logger = $logger ?? new NullLogger();
 
-        if ($context = $this->browser->getContext()) {
+        if ($context = $this->session->getContext()) {
             $context->addInitScript(self::FETCH_REDIRECT_SCRIPT);
             CookieJarSync::fromContext($this->getCookieJar(), $context);
         }
@@ -211,7 +215,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         $this->ensureInterceptorSetUp();
         $url = $this->getBaseUrl().$path;
         $this->log('debug', 'Navigating with Playwright', ['url' => $url]);
-        $page = $this->browser->getPage();
+        $page = $this->session->getPage();
 
         if (null === $page) {
             throw new \RuntimeException('No page available. Browser may not be started.');
@@ -219,7 +223,7 @@ class PlaywrightKernelClient extends AbstractBrowser
 
         $page->goto($url);
 
-        if ($context = $this->browser->getContext()) {
+        if ($context = $this->session->getContext()) {
             CookieJarSync::toJarFromUrl($this->getCookieJar(), $context, $page->url());
         }
 
@@ -228,7 +232,12 @@ class PlaywrightKernelClient extends AbstractBrowser
 
     public function getPage(): ?PageInterface
     {
-        return $this->browser->getPage();
+        return $this->session->getPage();
+    }
+
+    public function context(): ?BrowserContextInterface
+    {
+        return $this->session->getContext();
     }
 
     /**
@@ -335,7 +344,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         }
 
         /** @var array{name: string, value: string, url?: string, domain?: string, path?: string, expires?: int, httpOnly?: bool, secure?: bool, sameSite?: 'Lax'|'None'|'Strict'} $cookie */
-        $context = $this->browser->getContext();
+        $context = $this->session->getContext();
 
         if (null === $context) {
             throw new \RuntimeException('Browser context is null - browser may not be started');
@@ -348,7 +357,7 @@ class PlaywrightKernelClient extends AbstractBrowser
     public function getCookie(string $name, ?string $url = null): ?string
     {
         $url ??= $this->getBaseUrl();
-        $cookies = $this->browser->getContext()?->cookies([$url]) ?? [];
+        $cookies = $this->session->getContext()?->cookies([$url]) ?? [];
 
         foreach ($cookies as $cookie) {
             if ($cookie['name'] === $name) {
@@ -363,7 +372,7 @@ class PlaywrightKernelClient extends AbstractBrowser
 
     public function clearCookies(): void
     {
-        $this->browser->getContext()?->clearCookies();
+        $this->session->getContext()?->clearCookies();
         $this->getCookieJar()->clear();
     }
 
@@ -620,7 +629,7 @@ class PlaywrightKernelClient extends AbstractBrowser
 
     private function setupRequestInterception(): void
     {
-        $this->browser->setupRouting(function (mixed $route): void {
+        $this->session->setupRouting(function (mixed $route): void {
             if (!is_object($route) || !method_exists($route, 'request')) {
                 return;
             }

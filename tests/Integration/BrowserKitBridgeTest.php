@@ -63,7 +63,7 @@ final class BrowserKitBridgeTest extends PlaywrightTestCase
         $browserKit = $this->client;
 
         // Set cookie via Playwright context (e.g. from a request)
-        $this->browser->getContext()->addCookies([
+        $browserKit->context()->addCookies([
             ['name' => 'sync_test', 'value' => 'ready', 'domain' => 'localhost', 'path' => '/'],
         ]);
 
@@ -82,7 +82,7 @@ final class BrowserKitBridgeTest extends PlaywrightTestCase
 
     private function getCookiesFromBrowser(): array
     {
-        $cookies = $this->browser->getContext()->cookies();
+        $cookies = $this->client->context()->cookies();
         $list = [];
         foreach ($cookies as $c) {
             $list[$c['name']] = $c['value'];
