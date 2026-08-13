@@ -52,4 +52,12 @@ final class ErrorHandlingTest extends PlaywrightTestCase
         self::assertSame(200, $response->getStatusCode());
         $this->assertPageContains('hello from app');
     }
+
+    public function testNotFoundSubresourceDoesNotAbortThePage(): void
+    {
+        $this->visit('/page-with-missing-image');
+
+        self::assertSame(404, $this->getLastResponse()->getStatusCode());
+        $this->assertPageContains('Page loaded');
+    }
 }

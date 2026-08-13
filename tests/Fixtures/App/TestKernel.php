@@ -232,6 +232,12 @@ class TestKernel extends BaseKernel
             ->controller([Controller\FormController::class, 'show'])
             ->methods(['GET', 'POST']);
 
+        $routes->add('page_with_missing_image', '/page-with-missing-image')
+            ->controller([Controller\ErrorController::class, 'pageWithMissingImage']);
+
+        $routes->add('missing_image', '/missing-image')
+            ->controller([Controller\ErrorController::class, 'missingImage']);
+
         $routes->add('assetmapper', '/assetmapper')
             ->controller([Controller\AssetMapperController::class, 'demo'])
             ->methods(['GET']);
