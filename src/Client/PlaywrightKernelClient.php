@@ -166,6 +166,7 @@ class PlaywrightKernelClient extends AbstractBrowser
     private ?string $lastProfileToken = null;
     private bool $profileNextRequest = false;
     private ?bool $profilerWasEnabled = null;
+    private bool $catchExceptions = true;
 
     /**
      * @param array<string, mixed> $server
@@ -198,6 +199,11 @@ class PlaywrightKernelClient extends AbstractBrowser
             $context->addInitScript(self::FETCH_REDIRECT_SCRIPT);
             CookieJarSync::fromContext($this->getCookieJar(), $context);
         }
+    }
+
+    public function catchExceptions(bool $catchExceptions): void
+    {
+        $this->catchExceptions = $catchExceptions;
     }
 
     public function visit(string $path): PageInterface
@@ -737,7 +743,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         try {
             $this->lastSymfonyRequest = $symfonyRequest;
             $this->startProfiling();
-            $response = $this->kernel->handle($symfonyRequest, HttpKernelInterface::MAIN_REQUEST, false);
+            $response = $this->kernel->handle($symfonyRequest, HttpKernelInterface::MAIN_REQUEST, $this->catchExceptions);
             $this->lastSymfonyResponse = $response;
 
             if ($this->kernel instanceof TerminableInterface) {

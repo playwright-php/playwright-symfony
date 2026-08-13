@@ -39,6 +39,7 @@ use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\SessionFactoryInterface;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
@@ -162,6 +163,60 @@ class PlaywrightKernelClientTest extends TestCase
         // Hooks should have been called with appropriate objects
         self::assertInstanceOf(SymfonyRequest::class, $seen->before);
         self::assertInstanceOf(SymfonyResponse::class, $seen->after);
+    }
+
+    public function testInterceptedRequestsCatchKernelExceptionsByDefault(): void
+    {
+        $kernel = new class implements HttpKernelInterface {
+            public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+            {
+                if (!$catch) {
+                    throw new NotFoundHttpException();
+                }
+
+                return new SymfonyResponse('Not Found', 404);
+            }
+        };
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $client->visit('/page');
+
+        $route = $this->page->triggerRequest(new MockRequest(url: 'http://localhost/missing.jpg'));
+
+        self::assertTrue($route->fulfilled);
+        self::assertSame(404, $route->fulfilledOptions['status'] ?? null);
+    }
+
+    public function testKernelExceptionCatchingCanBeDisabled(): void
+    {
+        $kernel = new class implements HttpKernelInterface {
+            public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+            {
+                if (!$catch) {
+                    throw new NotFoundHttpException();
+                }
+
+                return new SymfonyResponse('Not Found', 404);
+            }
+        };
+
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            $kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+        );
+        $client->catchExceptions(false);
+        $client->visit('/page');
+
+        $this->expectException(NotFoundHttpException::class);
+
+        $this->page->triggerRequest(new MockRequest(url: 'http://localhost/missing.jpg'));
     }
 
     public function testDocumentRedirectUsesPlaywrightNavigationRedirect(): void
