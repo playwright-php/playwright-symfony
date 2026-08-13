@@ -24,12 +24,12 @@ use Playwright\Symfony\Client\Interception\AssetServer;
 use Playwright\Symfony\Client\PlaywrightKernelClient;
 use Playwright\Symfony\Client\RequestConverter;
 use Playwright\Symfony\Client\ResponseConverter;
+use Playwright\Symfony\Cookie\CookieJar as PlaywrightCookieJar;
 use Playwright\Symfony\Tests\Client\Fixtures\FakeBrowserContext;
 use Playwright\Symfony\Tests\Client\Fixtures\FakeLogger;
 use Playwright\Symfony\Tests\Client\Fixtures\FakePage;
 use Playwright\Symfony\Tests\Client\Fixtures\TestBrowserRegistry;
 use Playwright\Symfony\Tests\Fixtures\MockRequest;
-use Playwright\Symfony\Util\CookieJarSync;
 use Symfony\Bundle\FrameworkBundle\Test\TestBrowserToken;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DomCrawler\Crawler;
@@ -53,7 +53,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[CoversClass(ResponseConverter::class)]
 #[CoversClass(AssetServer::class)]
 #[CoversClass(AssetFile::class)]
-#[UsesClass(CookieJarSync::class)]
+#[UsesClass(PlaywrightCookieJar::class)]
 class PlaywrightKernelClientTest extends TestCase
 {
     private TestBrowserRegistry $browser;

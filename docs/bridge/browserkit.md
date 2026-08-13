@@ -38,7 +38,7 @@ $crawler = $client->submit($form);
 - Real browser interactions: click/submit use Playwright, not synthetic HTTP.
 - `request()` with method !== GET constructs and submits a synthetic in-page form to preserve browser semantics.
 - Response mapping: uses last Playwright Response (status, headers) + page content for BrowserKit Response.
-- Cookies: kept in sync between BrowserKit CookieJar and Playwright BrowserContext.
+- Cookies: the BrowserKit CookieJar is backed by the Playwright BrowserContext, so both read and write one store.
 
 ## Options
 

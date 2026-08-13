@@ -14,6 +14,8 @@ Before 1.0, breaking changes are released in minor versions.
 
 ### Changed
 
+- `getCookieJar()` now returns a jar backed by the browser context, so it reads the cookies the browser actually holds and writing to it reaches the browser. The internal `CookieJarSync`, which copied cookies into a separate jar at a few fixed points, is gone.
+- **BC break:** cookies in a `CookieJar` passed to `PlaywrightClient` are now written into the browser context. They were previously overwritten by the context's own cookies and never sent.
 - **BC break:** `PlaywrightTestCase` now extends `WebTestCase` instead of `KernelTestCase`. Subclasses that define members inherited from `WebTestCase`, such as `createClient()`, must use compatible signatures.
 - **BC break:** `PlaywrightTestCase::logout()` now accepts an optional firewall context and returns `static` instead of `void`. Overrides must change their signature to `logout(string $firewallContext = 'main'): static`.
 - **BC break:** `assertSelectorExists()`, `assertSelectorNotExists()`, `assertSelectorTextContains()`, and `assertResponseIsSuccessful()` now use the public static Symfony `WebTestCase` signatures. Overrides of the previous protected instance methods must be updated. Calls from tests remain compatible.
