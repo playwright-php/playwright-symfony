@@ -66,7 +66,7 @@ final class AssetMapperTest extends PlaywrightTestCase
         $this->assertPageContains('This page uses AssetMapper for CSS assets');
 
         // Verify the heading element exists
-        $heading = $this->page->locator('h1.heading');
+        $heading = $this->getPage()->locator('h1.heading');
         self::assertTrue($heading->isVisible());
         self::assertSame('AssetMapper Demo', $heading->textContent());
     }
@@ -76,7 +76,7 @@ final class AssetMapperTest extends PlaywrightTestCase
         $this->visit('/assetmapper');
 
         // Verify the CSS link is present in the page (link elements are not visible; check presence)
-        $cssLink = $this->page->locator('link[rel="stylesheet"]');
+        $cssLink = $this->getPage()->locator('link[rel="stylesheet"]');
         self::assertTrue($cssLink->count() > 0, 'Expected at least one stylesheet <link> element');
 
         $href = $cssLink->getAttribute('href');
@@ -88,7 +88,7 @@ final class AssetMapperTest extends PlaywrightTestCase
             'Expected stylesheet path to be served by AssetMapper with optional digest suffix'
         );
 
-        $cssContents = $this->page->evaluate('href => fetch(href).then(r => r.text())', [$href]);
+        $cssContents = $this->getPage()->evaluate('href => fetch(href).then(r => r.text())', [$href]);
         self::assertStringContainsString('.styled-box', $cssContents);
         self::assertStringContainsString('background-color: #3498db', $cssContents);
     }
@@ -98,7 +98,7 @@ final class AssetMapperTest extends PlaywrightTestCase
         $this->visit('/assetmapper');
 
         // Locate the styled box element
-        $styledBox = $this->page->locator('.styled-box');
+        $styledBox = $this->getPage()->locator('.styled-box');
         self::assertTrue($styledBox->isVisible());
 
         // Verify the box contains expected text
@@ -132,7 +132,7 @@ final class AssetMapperTest extends PlaywrightTestCase
         $this->visit('/assetmapper');
 
         // Verify the container has expected styling
-        $container = $this->page->locator('.container');
+        $container = $this->getPage()->locator('.container');
         self::assertTrue($container->isVisible());
 
         // Check background color is white
@@ -152,7 +152,7 @@ final class AssetMapperTest extends PlaywrightTestCase
         $this->visit('/assetmapper');
 
         // Verify the message paragraph element
-        $message = $this->page->locator('p.message');
+        $message = $this->getPage()->locator('p.message');
         self::assertTrue($message->isVisible());
         self::assertStringContainsString('AssetMapper', $message->textContent());
 
@@ -172,14 +172,14 @@ final class AssetMapperTest extends PlaywrightTestCase
         $this->visit('/assetmapper');
 
         // Verify proper HTML structure
-        self::assertSame('AssetMapper Demo', $this->page->title());
+        self::assertSame('AssetMapper Demo', $this->getPage()->title());
 
         // Check viewport meta tag
-        $viewport = $this->page->locator('meta[name="viewport"]');
+        $viewport = $this->getPage()->locator('meta[name="viewport"]');
         self::assertTrue($viewport->count() > 0);
 
         // Verify UTF-8 charset
-        $charset = $this->page->locator('meta[charset="UTF-8"]');
+        $charset = $this->getPage()->locator('meta[charset="UTF-8"]');
         self::assertTrue($charset->count() > 0);
     }
 
@@ -196,7 +196,7 @@ final class AssetMapperTest extends PlaywrightTestCase
 
         @unlink($screenshotPath);
 
-        $this->page->screenshot($screenshotPath, [
+        $this->getPage()->screenshot($screenshotPath, [
             'fullPage' => true,
         ]);
 

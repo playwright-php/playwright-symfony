@@ -23,6 +23,14 @@ requests to a web server, Playwright intercepts all outgoing requests and routes
 5. **Asset Layer (`AssetServer`)**: A high-performance bypassing layer that serves static files and AssetMapper assets
    directly from the filesystem, avoiding Kernel overhead for non-application logic.
 
+## Extension API
+
+`BrowserRegistry`, `BrowserSessionInterface`, and `PlaywrightKernelClient` are public integration points. Code that
+creates sessions directly should depend on `BrowserSessionInterface` and release each session with
+`BrowserRegistry::closeSession()`.
+
+`BrowserSession` is the registry's internal implementation and may change without preserving backward compatibility.
+
 ## Request Lifecycle
 
 When you call `$this->visit('/dashboard')`:
@@ -55,8 +63,8 @@ The bundle optimizes the DI container for testing:
 
 ### Shared Browser Process
 
-Launching a browser process takes ~1000ms. By sharing the process across tests in the same class and only calling
-`restartContext()` (~50ms), we achieve near-instant isolation.
+Launching a browser process takes ~1000ms. The process starts lazily and is shared across tests in the same class,
+while isolated contexts are created on demand and closed after each test.
 
 ### In-Process Execution
 

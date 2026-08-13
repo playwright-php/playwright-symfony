@@ -30,7 +30,7 @@ final class ContainerAccessTest extends PlaywrightTestCase
 
     public function testGetContainerReturnsTheContainer(): void
     {
-        $container = $this->client->getContainer();
+        $container = static::getPlaywrightClient()->getContainer();
 
         self::assertInstanceOf(ContainerInterface::class, $container);
         self::assertTrue($container->has('kernel'));
@@ -38,7 +38,7 @@ final class ContainerAccessTest extends PlaywrightTestCase
 
     public function testGetContainerPrefersTheTestContainer(): void
     {
-        $container = $this->client->getContainer();
+        $container = static::getPlaywrightClient()->getContainer();
         $realContainer = self::$kernel?->getContainer();
 
         self::assertNotNull($realContainer);

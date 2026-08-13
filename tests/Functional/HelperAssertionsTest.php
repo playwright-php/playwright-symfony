@@ -41,6 +41,7 @@ final class HelperAssertionsTest extends PlaywrightTestCase
         $this->assertSelectorExists('#visible-text');
         $this->assertSelectorNotExists('#async-text');
 
+        $this->getPage()->evaluate('window.scheduleAsyncText()');
         $this->waitForSelector('#async-text');
         $this->assertSelectorExists('#async-text');
 

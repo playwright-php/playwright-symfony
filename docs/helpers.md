@@ -43,17 +43,33 @@ public function testGetPage(): void
 }
 ```
 
-### Magic `$this->page` Property
+### `getPlaywrightClient(): PlaywrightKernelClient`
 
-Convenience property for accessing the Page without calling `getPage()`.
+Return the primary client, creating it on first use and reusing it for the current test.
 
 **Example:**
 
 ```php
-public function testMagicProperty(): void
+public function testClient(): void
 {
-    $this->visit('/form');
-    $this->page->fill('#email', 'user@example.com');
+    $client = static::getPlaywrightClient();
+    $client->visit('/form');
+    $client->getPage()->fill('#email', 'user@example.com');
+}
+```
+
+### `createPlaywrightClient(): PlaywrightKernelClient`
+
+Create a fresh client backed by an isolated browser context and page. Clients created during one test share the browser
+process and Symfony kernel, but not cookies or browser storage.
+
+**Example:**
+
+```php
+public function testTwoUsers(): void
+{
+    $alice = static::getPlaywrightClient();
+    $bob = static::createPlaywrightClient();
 }
 ```
 
@@ -617,13 +633,13 @@ public function testWithFixtures(): void
 
 ### Lifecycle Considerations
 
-**Important:** If you override `setUp()` or `tearDown()`, always call the parent methods. Note that the browser process
-is managed at the class level and stopped in `tearDownAfterClass()`.
+**Important:** If you override `setUp()` or `tearDown()`, always call the parent methods. The browser starts lazily,
+its contexts are closed after each test, and its process is stopped in `tearDownAfterClass()`.
 
 ```php
 protected function setUp(): void
 {
-    parent::setUp(); // REQUIRED - starts/restarts the browser session
+    parent::setUp(); // REQUIRED - registers the current test for request hooks
 
     // Your custom setup here
 }
@@ -632,7 +648,7 @@ protected function tearDown(): void
 {
     // Your custom cleanup here
 
-    parent::tearDown(); // REQUIRED - handles exception restoration
+    parent::tearDown(); // REQUIRED - closes contexts and restores exception handlers
 }
 ```
 

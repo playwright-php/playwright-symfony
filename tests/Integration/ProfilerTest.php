@@ -31,40 +31,40 @@ final class ProfilerTest extends PlaywrightTestCase
 
     public function testNoProfileIsAvailableByDefault(): void
     {
-        $this->client->visit('/hello');
+        static::getPlaywrightClient()->visit('/hello');
 
-        self::assertNull($this->client->getProfile());
+        self::assertNull(static::getPlaywrightClient()->getProfile());
     }
 
     public function testEnableProfilerMakesTheProfileAvailable(): void
     {
-        $this->client->enableProfiler();
-        $this->client->visit('/hello');
+        static::getPlaywrightClient()->enableProfiler();
+        static::getPlaywrightClient()->visit('/hello');
 
-        self::assertInstanceOf(Profile::class, $this->client->getProfile());
+        self::assertInstanceOf(Profile::class, static::getPlaywrightClient()->getProfile());
     }
 
     public function testProfilerAppliesToASingleRequest(): void
     {
-        $this->client->enableProfiler();
-        $this->client->visit('/hello');
+        static::getPlaywrightClient()->enableProfiler();
+        static::getPlaywrightClient()->visit('/hello');
 
-        self::assertInstanceOf(Profile::class, $this->client->getProfile());
+        self::assertInstanceOf(Profile::class, static::getPlaywrightClient()->getProfile());
 
-        $this->client->visit('/hello');
+        static::getPlaywrightClient()->visit('/hello');
 
-        self::assertNull($this->client->getProfile(), 'expected profiling to apply to one request only');
+        self::assertNull(static::getPlaywrightClient()->getProfile(), 'expected profiling to apply to one request only');
     }
 
     public function testGloballyEnabledProfilerStaysEnabled(): void
     {
-        $profiler = self::$kernel?->getContainer()->get('profiler');
+        $profiler = self::getContainer()->get('profiler');
 
         self::assertInstanceOf(Profiler::class, $profiler);
         $profiler->enable();
 
-        $this->client->enableProfiler();
-        $this->client->visit('/hello');
+        static::getPlaywrightClient()->enableProfiler();
+        static::getPlaywrightClient()->visit('/hello');
 
         self::assertTrue($profiler->isEnabled());
     }

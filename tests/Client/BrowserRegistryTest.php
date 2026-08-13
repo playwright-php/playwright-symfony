@@ -112,13 +112,15 @@ class BrowserRegistryTest extends TestCase
 
     public function testStopClosesContextAndClearsState(): void
     {
-        $page = new DummyPage();
-        $context = new DummyBrowserContext($page);
-
+        $context = new DummyBrowserContext(new DummyPage());
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->once())->method('newContext')->willReturn($context);
         $browser = new BrowserRegistry('chromium', true);
-
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
         $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
-        $refSession->setValue($browser, new BrowserSession($context));
+
+        $browser->start();
 
         $browser->stop();
 
@@ -133,15 +135,17 @@ class BrowserRegistryTest extends TestCase
 
         $client = $this->createMock(PlaywrightClient::class);
         $client->expects($this->once())->method('close');
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->once())->method('newContext')->willReturn($context);
 
         $browser = new BrowserRegistry('chromium', true);
-
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
         $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
-        $refSession->setValue($browser, new BrowserSession($context));
-
         $refClient = new \ReflectionProperty(BrowserRegistry::class, 'client');
         $refClient->setValue($browser, $client);
 
+        $browser->start();
         $browser->stop();
 
         $this->assertNull($refSession->getValue($browser));
@@ -249,14 +253,40 @@ class BrowserRegistryTest extends TestCase
     public function testCloseStopsTheRegistry(): void
     {
         $context = new DummyBrowserContext(new DummyPage());
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->once())->method('newContext')->willReturn($context);
         $browser = new BrowserRegistry();
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
         $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
-        $refSession->setValue($browser, new BrowserSession($context));
 
+        $browser->start();
         $browser->close();
 
         $this->assertTrue($context->closed);
         $this->assertNull($refSession->getValue($browser));
+    }
+
+    public function testResetSessionsKeepsTheBrowserReusable(): void
+    {
+        $firstContext = new DummyBrowserContext(new DummyPage());
+        $secondContext = new DummyBrowserContext(new DummyPage());
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->exactly(2))
+            ->method('newContext')
+            ->willReturnOnConsecutiveCalls($firstContext, $secondContext);
+        $driver->expects($this->never())->method('close');
+
+        $browser = new BrowserRegistry('chromium', true);
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
+
+        $browser->start();
+        $browser->resetSessions();
+        $browser->start();
+
+        $this->assertTrue($firstContext->closed);
+        $this->assertFalse($secondContext->closed);
     }
 
     public function testEqualsReturnsTrueForSameBrowserConfiguration(): void

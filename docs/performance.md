@@ -10,17 +10,15 @@ By default, this bundle reuses a single browser process across all tests in a te
 
 ### How it works:
 
-1. **Launch**: The browser process is started once before the first test method.
-2. **Context Isolation**: Between each test, the bundle calls `restartContext()`. This:
-    - Closes all open pages.
-    - Clears all cookies and storage.
-    - Creates a fresh Browser Context and Page.
+1. **Lazy Launch**: The browser process starts when the first test asks for a client. Tests that do not use a browser
+   do not start it.
+2. **Context Isolation**: Each client owns a Browser Context and Page. All contexts are closed after the test, and fresh
+   ones are created on demand in the next test.
 3. **Teardown**: The browser process is stopped only after all tests in the class have finished.
 
 ### Result:
 
-You get the **perfect isolation** of a fresh browser session for every test, but only pay the **startup cost once** per
-test suite.
+You get the **perfect isolation** of fresh browser sessions, but only pay the **startup cost once** per test class.
 
 ## In-Process Kernel Interception
 

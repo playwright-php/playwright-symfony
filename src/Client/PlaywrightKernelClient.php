@@ -45,14 +45,14 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
- * Internal BrowserKit client that intercepts browser requests and routes them through Symfony's HttpKernel.
+ * BrowserKit client that intercepts browser requests and routes them through Symfony's HttpKernel.
  *
  * This is the core client for in-process E2E testing of Symfony applications. It combines a real
  * Playwright browser with Symfony's HttpKernel to enable full browser testing while maintaining
  * access to Symfony internals (services, events, profiler, request/response inspection).
  *
  * Primary role in architecture:
- * - Used exclusively by PlaywrightTestCase (users never instantiate this directly)
+ * - Returned by PlaywrightTestCase client factories
  * - Intercepts HTTP requests from the browser to configured hosts (localhost, 127.0.0.1)
  * - Routes intercepted requests through Symfony's kernel in the same PHP process
  * - Provides access to last Symfony request/response for assertions
@@ -81,8 +81,6 @@ use Symfony\Component\Security\Core\User\UserInterface;
  * When NOT to use:
  * - Testing external websites → use BrowserKit\PlaywrightClient instead
  * - Need real HTTP networking behavior → use BrowserKit\PlaywrightClient instead
- *
- * @internal This class is only used by PlaywrightTestCase and should not be instantiated directly
  *
  * @final
  *
@@ -171,6 +169,8 @@ class PlaywrightKernelClient extends AbstractBrowser
     private readonly BrowserSessionInterface $session;
 
     /**
+     * Creates a client that routes browser requests through a Symfony kernel.
+     *
      * @param array<string, mixed> $server
      * @param string[]|null        $interceptedHosts
      */
@@ -205,11 +205,17 @@ class PlaywrightKernelClient extends AbstractBrowser
         }
     }
 
+    /**
+     * Controls whether exceptions thrown by the kernel are converted to responses.
+     */
     public function catchExceptions(bool $catchExceptions): void
     {
         $this->catchExceptions = $catchExceptions;
     }
 
+    /**
+     * Navigates the browser page to a path relative to the configured base URL.
+     */
     public function visit(string $path): PageInterface
     {
         $this->ensureInterceptorSetUp();
@@ -230,17 +236,25 @@ class PlaywrightKernelClient extends AbstractBrowser
         return $page;
     }
 
+    /**
+     * Returns the client's Playwright page, or null after its session is closed.
+     */
     public function getPage(): ?PageInterface
     {
         return $this->session->getPage();
     }
 
+    /**
+     * Returns the client's isolated browser context, or null after its session is closed.
+     */
     public function context(): ?BrowserContextInterface
     {
         return $this->session->getContext();
     }
 
     /**
+     * Clicks a BrowserKit link in the live page and returns its updated crawler.
+     *
      * @param array<string, mixed> $serverParameters
      */
     public function click(Link $link, array $serverParameters = []): Crawler
@@ -258,6 +272,8 @@ class PlaywrightKernelClient extends AbstractBrowser
     }
 
     /**
+     * Fills and submits a BrowserKit form in the live page.
+     *
      * @param array<string, mixed> $values
      * @param array<string, mixed> $serverParameters
      */
@@ -289,6 +305,9 @@ class PlaywrightKernelClient extends AbstractBrowser
         return $this->getCrawler();
     }
 
+    /**
+     * Returns a crawler built from the live page content.
+     */
     public function getCrawler(): Crawler
     {
         $page = $this->getPage();
@@ -318,6 +337,8 @@ class PlaywrightKernelClient extends AbstractBrowser
     }
 
     /**
+     * Adds or replaces a cookie in both Playwright and BrowserKit.
+     *
      * @param array<string, mixed> $options
      */
     public function setCookie(string $name, string $value, array $options = []): void
@@ -354,6 +375,9 @@ class PlaywrightKernelClient extends AbstractBrowser
         CookieJarSync::toJarFromUrl($this->getCookieJar(), $context, $this->getBaseUrl());
     }
 
+    /**
+     * Returns a browser cookie value for the given URL.
+     */
     public function getCookie(string $name, ?string $url = null): ?string
     {
         $url ??= $this->getBaseUrl();
@@ -370,12 +394,18 @@ class PlaywrightKernelClient extends AbstractBrowser
         return null;
     }
 
+    /**
+     * Clears every cookie from Playwright and BrowserKit.
+     */
     public function clearCookies(): void
     {
         $this->session->getContext()?->clearCookies();
         $this->getCookieJar()->clear();
     }
 
+    /**
+     * Removes a cookie from Playwright and BrowserKit.
+     */
     public function clearCookie(string $name, ?string $domain = null, string $path = '/'): void
     {
         // Behavior contract (used by tests): clearCookie removes the cookie.
@@ -402,6 +432,8 @@ class PlaywrightKernelClient extends AbstractBrowser
     }
 
     /**
+     * Sets the legacy AUTH cookie used by the package's simple authentication helper.
+     *
      * @param array<string, mixed> $context
      */
     public function authenticate(string $identifier = 'user', array $context = []): void
@@ -411,6 +443,8 @@ class PlaywrightKernelClient extends AbstractBrowser
     }
 
     /**
+     * Stores a Symfony security token and synchronizes its session cookie to Playwright.
+     *
      * @param array<string, mixed> $tokenAttributes
      *
      * @return $this
@@ -456,6 +490,11 @@ class PlaywrightKernelClient extends AbstractBrowser
         return $this;
     }
 
+    /**
+     * Clears the selected Symfony firewall token and its browser session cookie.
+     *
+     * @return $this
+     */
     public function logout(string $firewallContext = 'main'): static
     {
         $this->clearCookie('AUTH');
@@ -484,6 +523,9 @@ class PlaywrightKernelClient extends AbstractBrowser
         return $this;
     }
 
+    /**
+     * Returns the Symfony session associated with the browser's session cookie.
+     */
     public function getSession(): ?SessionInterface
     {
         $container = $this->getContainer();
@@ -511,26 +553,34 @@ class PlaywrightKernelClient extends AbstractBrowser
         return $session;
     }
 
+    /**
+     * Returns the last Symfony request handled through browser interception.
+     */
     public function getLastSymfonyRequest(): ?SymfonyRequest
     {
         return $this->lastSymfonyRequest;
     }
 
+    /**
+     * Returns the intercepted Symfony request when available, otherwise the BrowserKit request.
+     */
     public function getRequest(): object
     {
         return $this->lastSymfonyRequest ?? parent::getRequest();
     }
 
+    /**
+     * Returns the last Symfony response handled through browser interception.
+     */
     public function getLastSymfonyResponse(): ?SymfonyResponse
     {
         return $this->lastSymfonyResponse;
     }
 
     /**
-     * The test container is preferred when available: it exposes private services, which is what
-     * tests need. Mirrors Symfony's KernelBrowser::getContainer().
+     * Returns the kernel's test container when available, exposing private test services.
      *
-     * Null when the kernel does not expose a container (it is only typed as HttpKernelInterface).
+     * Returns null when the configured HttpKernelInterface does not implement KernelInterface.
      */
     public function getContainer(): ?ContainerInterface
     {
@@ -557,11 +607,17 @@ class PlaywrightKernelClient extends AbstractBrowser
         $this->profileNextRequest = true;
     }
 
+    /**
+     * Returns the intercepted Symfony response when available, otherwise the BrowserKit response.
+     */
     public function getResponse(): object
     {
         return $this->lastSymfonyResponse ?? parent::getResponse();
     }
 
+    /**
+     * Returns the profile collected for the last profiled request.
+     */
     public function getProfile(): ?Profile
     {
         if (null === $this->lastProfileToken) {
@@ -571,12 +627,17 @@ class PlaywrightKernelClient extends AbstractBrowser
         return $this->profiler()?->loadProfile($this->lastProfileToken);
     }
 
+    /**
+     * Returns the base URL used to resolve relative navigation paths.
+     */
     public function getBaseUrl(): string
     {
         return $this->baseUrl;
     }
 
     /**
+     * Replaces the host names whose requests are routed through the Symfony kernel.
+     *
      * @param string[] $hosts
      */
     public function setInterceptedHosts(array $hosts): void
@@ -585,6 +646,8 @@ class PlaywrightKernelClient extends AbstractBrowser
     }
 
     /**
+     * Returns the host names whose requests are routed through the Symfony kernel.
+     *
      * @return string[]
      */
     public function getInterceptedHosts(): array

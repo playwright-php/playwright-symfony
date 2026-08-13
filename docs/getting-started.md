@@ -67,8 +67,8 @@ class HomepageTest extends PlaywrightTestCase
         $this->assertPageContains('Welcome to Symfony');
         
         // Interact with the real browser using the Playwright Page API
-        $this->page->locator('a.btn-primary')->click();
-        $this->assertStringContainsString('/dashboard', $this->page->url());
+        $this->getPage()->locator('a.btn-primary')->click();
+        $this->assertStringContainsString('/dashboard', $this->getPage()->url());
     }
 }
 ```

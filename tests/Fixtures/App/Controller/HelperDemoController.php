@@ -36,14 +36,14 @@ final class HelperDemoController
     <meta charset="UTF-8" />
     <title>Helper Demo</title>
     <script>
-        window.addEventListener('DOMContentLoaded', () => {
+        window.scheduleAsyncText = () => {
             setTimeout(() => {
                 const asyncBlock = document.createElement('div');
                 asyncBlock.id = 'async-text';
                 asyncBlock.textContent = 'Async content ready';
                 document.body.appendChild(asyncBlock);
             }, 120);
-        });
+        };
     </script>
 </head>
 <body>

@@ -38,14 +38,14 @@ final class FormPostTest extends PlaywrightTestCase
         $this->assertPageContains('<input type="text" id="name" name="name"');
 
         // Fill and submit the form
-        $this->page->locator('#name')->fill('Alice');
-        $this->page->locator('button[type="submit"]')->click();
+        $this->getPage()->locator('#name')->fill('Alice');
+        $this->getPage()->locator('button[type="submit"]')->click();
 
         // Verify the response shows the greeting
         $this->assertPageContains('Hello Alice');
 
         // Verify we're still on the form URL (POST to same URL)
-        $this->assertStringContainsString('/form', $this->page->url());
+        $this->assertStringContainsString('/form', $this->getPage()->url());
     }
 
     public function testFormValidationRequiresName(): void
@@ -54,8 +54,8 @@ final class FormPostTest extends PlaywrightTestCase
         $this->visit('/form');
 
         // Submit empty form (remove required attribute to test server-side validation)
-        $this->page->evaluate('() => { document.querySelector("#name").removeAttribute("required"); }');
-        $this->page->locator('button[type="submit"]')->click();
+        $this->getPage()->evaluate('() => { document.querySelector("#name").removeAttribute("required"); }');
+        $this->getPage()->locator('button[type="submit"]')->click();
 
         // Should show validation error
         $this->assertPageContains('Name is required');
@@ -68,8 +68,8 @@ final class FormPostTest extends PlaywrightTestCase
 
         // Fill with special characters
         $testName = 'Bob & Charlie <test>';
-        $this->page->locator('#name')->fill($testName);
-        $this->page->locator('button[type="submit"]')->click();
+        $this->getPage()->locator('#name')->fill($testName);
+        $this->getPage()->locator('button[type="submit"]')->click();
 
         // Verify the response shows the greeting with special chars (HTML encoded)
         $this->assertPageContains('Hello Bob &amp; Charlie <test>');

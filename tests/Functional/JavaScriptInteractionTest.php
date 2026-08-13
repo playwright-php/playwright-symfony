@@ -33,7 +33,7 @@ final class JavaScriptInteractionTest extends PlaywrightTestCase
         $this->visit('/hello');
 
         // Execute JavaScript and get result
-        $result = $this->page->evaluate('() => 2 + 2');
+        $result = $this->getPage()->evaluate('() => 2 + 2');
 
         self::assertSame(4, $result);
     }
@@ -43,7 +43,7 @@ final class JavaScriptInteractionTest extends PlaywrightTestCase
         $this->visit('/hello');
 
         // Get page content via JavaScript
-        $content = $this->page->evaluate('() => document.body.textContent');
+        $content = $this->getPage()->evaluate('() => document.body.textContent');
 
         self::assertIsString($content);
         self::assertStringContainsString('hello', $content);
@@ -54,7 +54,7 @@ final class JavaScriptInteractionTest extends PlaywrightTestCase
         $this->visit('/hello');
 
         // Add new element via JavaScript
-        $this->page->evaluate('() => {
+        $this->getPage()->evaluate('() => {
             const div = document.createElement("div");
             div.id = "test-element";
             div.textContent = "JavaScript Added This";
@@ -71,7 +71,7 @@ final class JavaScriptInteractionTest extends PlaywrightTestCase
         $this->visit('/hello');
 
         // Add element after delay
-        $this->page->evaluate('() => {
+        $this->getPage()->evaluate('() => {
             setTimeout(() => {
                 const div = document.createElement("div");
                 div.id = "delayed-element";
@@ -81,7 +81,7 @@ final class JavaScriptInteractionTest extends PlaywrightTestCase
         }');
 
         // Wait for element to appear
-        $this->page->waitForSelector('#delayed-element', ['timeout' => 5000]);
+        $this->getPage()->waitForSelector('#delayed-element', ['timeout' => 5000]);
 
         $this->assertSelectorExists('#delayed-element');
     }

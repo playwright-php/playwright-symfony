@@ -32,15 +32,15 @@ final class AssetServerTest extends PlaywrightTestCase
     {
         $this->visit('/asset-test');
 
-        $content = $this->page->content();
+        $content = $this->getPage()->content();
         static::assertStringContainsString('Asset Server Test Page', $content);
 
         // Check that CSS link is present in HTML
-        $cssLinkCount = $this->page->locator('link[rel="stylesheet"]')->count();
+        $cssLinkCount = $this->getPage()->locator('link[rel="stylesheet"]')->count();
         static::assertGreaterThan(0, $cssLinkCount);
 
         // Check if the styling is applied by checking computed style
-        $hasGradientBg = $this->page->evaluate('() => {
+        $hasGradientBg = $this->getPage()->evaluate('() => {
             const box = document.querySelector(".asset-test-box");
             if (!box) return false;
             const style = window.getComputedStyle(box);
@@ -58,11 +58,11 @@ final class AssetServerTest extends PlaywrightTestCase
         $this->visit('/asset-test');
 
         // Check if JS function is available
-        $functionExists = $this->page->evaluate('() => typeof testAssetFunction === "function"');
+        $functionExists = $this->getPage()->evaluate('() => typeof testAssetFunction === "function"');
         static::assertTrue($functionExists, 'JavaScript function should be defined');
 
         // Check if JS updated the DOM
-        $jsResult = $this->page->locator('#js-test-result')->textContent();
+        $jsResult = $this->getPage()->locator('#js-test-result')->textContent();
         static::assertSame('Asset script works!', $jsResult);
     }
 
@@ -74,7 +74,7 @@ final class AssetServerTest extends PlaywrightTestCase
         $this->visit('/asset-test');
 
         // Fetch the CSS file directly
-        $cssResponse = $this->page->evaluate('async () => {
+        $cssResponse = $this->getPage()->evaluate('async () => {
             const link = document.querySelector("link[rel=\"stylesheet\"]");
             if (!link) return null;
             const response = await fetch(link.href);
@@ -97,7 +97,7 @@ final class AssetServerTest extends PlaywrightTestCase
     {
         $this->visit('/asset-test');
 
-        $jsResponse = $this->page->evaluate('async () => {
+        $jsResponse = $this->getPage()->evaluate('async () => {
             const script = document.querySelector("script[src]");
             if (!script) return null;
             const response = await fetch(script.src);
@@ -120,7 +120,7 @@ final class AssetServerTest extends PlaywrightTestCase
     {
         $this->visit('/asset-test');
 
-        $headers = $this->page->evaluate('async () => {
+        $headers = $this->getPage()->evaluate('async () => {
             const link = document.querySelector("link[rel=\"stylesheet\"]");
             if (!link) return null;
             const response = await fetch(link.href);
@@ -144,7 +144,7 @@ final class AssetServerTest extends PlaywrightTestCase
         $this->visit('/asset-test');
 
         // Verify that the actual asset URLs work (they go through AssetMapper)
-        $linksWork = $this->page->evaluate('async () => {
+        $linksWork = $this->getPage()->evaluate('async () => {
             const cssLink = document.querySelector("link[rel=\"stylesheet\"]");
             const jsScript = document.querySelector("script[src]");
             
