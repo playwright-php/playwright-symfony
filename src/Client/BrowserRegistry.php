@@ -51,11 +51,13 @@ use Playwright\PlaywrightFactory;
  *
  * @author Simon André <smn.andre@gmail.com>
  */
-class BrowserRegistry
+class BrowserRegistry implements BrowserSessionInterface
 {
     private ?PlaywrightClient $client = null;
     private ?BrowserInterface $browser = null;
-    private ?BrowserSession $session = null;
+    private ?BrowserSessionInterface $session = null;
+    /** @var array<int, BrowserSessionInterface> */
+    private array $sessions = [];
 
     /**
      * @param array<string, mixed> $launchOptions
@@ -88,21 +90,38 @@ class BrowserRegistry
         // each close is best-effort: a broken connection - an exception thrown while handling a
         // routed request is re-raised by every later call - would otherwise abort before the
         // client is closed, leaving its Node process running for the rest of the PHP process
-        $this->closeQuietly($this->session);
+        $sessions = $this->sessions;
+        if (null !== $this->session) {
+            $sessions[spl_object_id($this->session)] = $this->session;
+        }
+
+        foreach ($sessions as $session) {
+            $this->closeQuietly($session);
+        }
 
         // the browser and its Node process outlive the context, so they need closing too
         $this->closeQuietly($this->browser);
         $this->closeQuietly($this->client);
 
         $this->session = null;
+        $this->sessions = [];
         $this->browser = null;
         $this->client = null;
     }
 
+    public function close(): void
+    {
+        $this->stop();
+    }
+
     public function restartContext(): void
     {
-        $this->session?->close();
+        $session = $this->session;
         $this->session = null;
+        if (null !== $session) {
+            unset($this->sessions[spl_object_id($session)]);
+            $session->close();
+        }
 
         $this->start();
     }
@@ -204,14 +223,40 @@ class BrowserRegistry
         return $typed;
     }
 
-    private function createSession(): BrowserSession
+    /**
+     * Creates an isolated context and page while reusing the browser process.
+     */
+    public function createSession(): BrowserSessionInterface
     {
         $this->browser ??= $this->launchBrowser();
+        $session = new BrowserSession($this->browser->newContext($this->contextOptions()));
+        $this->sessions[spl_object_id($session)] = $session;
 
-        return new BrowserSession($this->browser->newContext($this->contextOptions()));
+        return $session;
     }
 
-    private function closeQuietly(BrowserSession|BrowserInterface|PlaywrightClient|null $closable): void
+    /**
+     * Closes a session created by this registry without stopping the shared browser.
+     */
+    public function closeSession(BrowserSessionInterface $session): void
+    {
+        $id = spl_object_id($session);
+        $managedSession = $this->sessions[$id] ?? null;
+
+        if ($managedSession !== $session) {
+            throw new \InvalidArgumentException('The browser session is not managed by this registry.');
+        }
+
+        unset($this->sessions[$id]);
+
+        if ($this->session === $managedSession) {
+            $this->session = null;
+        }
+
+        $managedSession->close();
+    }
+
+    private function closeQuietly(BrowserSessionInterface|BrowserInterface|PlaywrightClient|null $closable): void
     {
         try {
             $closable?->close();

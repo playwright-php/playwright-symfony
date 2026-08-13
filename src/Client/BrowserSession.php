@@ -22,7 +22,7 @@ use Playwright\Page\PageInterface;
  *
  * @internal
  */
-final class BrowserSession
+final class BrowserSession implements BrowserSessionInterface
 {
     private ?BrowserContextInterface $context;
     private ?PageInterface $page;

@@ -15,8 +15,10 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Client;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Browser\BrowserContextInterface;
+use Playwright\Browser\BrowserInterface;
 use Playwright\PlaywrightClient;
 use Playwright\Symfony\Client\BrowserRegistry;
 use Playwright\Symfony\Client\BrowserSession;
@@ -24,6 +26,7 @@ use Playwright\Symfony\Tests\Fixtures\Browser\DummyBrowserContext;
 use Playwright\Symfony\Tests\Fixtures\Browser\DummyPage;
 
 #[CoversClass(BrowserRegistry::class)]
+#[UsesClass(BrowserSession::class)]
 class BrowserRegistryTest extends TestCase
 {
     private ?string $originalBrowser;
@@ -143,6 +146,117 @@ class BrowserRegistryTest extends TestCase
 
         $this->assertNull($refSession->getValue($browser));
         $this->assertNull($refClient->getValue($browser));
+    }
+
+    public function testCreateSessionReusesTheBrowser(): void
+    {
+        $firstPage = new DummyPage();
+        $secondPage = new DummyPage();
+        $firstContext = new DummyBrowserContext($firstPage);
+        $secondContext = new DummyBrowserContext($secondPage);
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->exactly(2))
+            ->method('newContext')
+            ->willReturnOnConsecutiveCalls(
+                $firstContext,
+                $secondContext,
+            );
+
+        $browser = new BrowserRegistry('chromium', true);
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
+
+        $first = $browser->createSession();
+        $second = $browser->createSession();
+
+        $this->assertSame($firstPage, $first->getPage());
+        $this->assertSame($secondPage, $second->getPage());
+
+        $browser->stop();
+
+        $this->assertTrue($firstContext->closed);
+        $this->assertTrue($secondContext->closed);
+    }
+
+    public function testCloseSessionClosesAndUnregistersTheSession(): void
+    {
+        $context = $this->createMock(BrowserContextInterface::class);
+        $context->expects($this->once())->method('close');
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->once())->method('newContext')->willReturn($context);
+
+        $browser = new BrowserRegistry();
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
+
+        $session = $browser->createSession();
+        $browser->closeSession($session);
+        $browser->stop();
+    }
+
+    public function testCloseSessionClearsThePrimarySession(): void
+    {
+        $context = new DummyBrowserContext(new DummyPage());
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->once())->method('newContext')->willReturn($context);
+
+        $browser = new BrowserRegistry();
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
+        $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
+
+        $browser->start();
+        $session = $refSession->getValue($browser);
+
+        $this->assertInstanceOf(BrowserSession::class, $session);
+
+        $browser->closeSession($session);
+
+        $this->assertTrue($context->closed);
+        $this->assertNull($refSession->getValue($browser));
+    }
+
+    public function testCloseSessionRejectsAnAlreadyClosedSession(): void
+    {
+        $context = new DummyBrowserContext(new DummyPage());
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->once())->method('newContext')->willReturn($context);
+
+        $browser = new BrowserRegistry();
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
+
+        $session = $browser->createSession();
+        $browser->closeSession($session);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The browser session is not managed by this registry.');
+
+        $browser->closeSession($session);
+    }
+
+    public function testCloseSessionRejectsASessionFromAnotherRegistry(): void
+    {
+        $browser = new BrowserRegistry();
+        $session = new BrowserSession(new DummyBrowserContext(new DummyPage()));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The browser session is not managed by this registry.');
+
+        $browser->closeSession($session);
+    }
+
+    public function testCloseStopsTheRegistry(): void
+    {
+        $context = new DummyBrowserContext(new DummyPage());
+        $browser = new BrowserRegistry();
+        $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
+        $refSession->setValue($browser, new BrowserSession($context));
+
+        $browser->close();
+
+        $this->assertTrue($context->closed);
+        $this->assertNull($refSession->getValue($browser));
     }
 
     public function testEqualsReturnsTrueForSameBrowserConfiguration(): void

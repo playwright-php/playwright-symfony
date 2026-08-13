@@ -84,4 +84,28 @@ class BrowserRegistryTest extends TestCase
 
         $browser->stop();
     }
+
+    public function testCreateSessionIsolatesCookies(): void
+    {
+        $browser = new BrowserRegistry('chromium', true);
+        $first = $browser->createSession();
+        $second = $browser->createSession();
+
+        $firstContext = $first->getContext();
+        $secondContext = $second->getContext();
+
+        $this->assertNotNull($firstContext);
+        $this->assertNotNull($secondContext);
+        $this->assertNotSame($firstContext, $secondContext);
+        $this->assertNotSame($first->getPage(), $second->getPage());
+
+        $firstContext->addCookies([
+            ['name' => 'session', 'value' => 'first', 'domain' => 'example.test', 'path' => '/'],
+        ]);
+
+        $this->assertSame('first', $firstContext->cookies()[0]['value']);
+        $this->assertSame([], $secondContext->cookies());
+
+        $browser->stop();
+    }
 }
