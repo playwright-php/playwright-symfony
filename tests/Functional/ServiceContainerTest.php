@@ -45,7 +45,7 @@ class ServiceContainerTest extends PlaywrightTestCase
     {
         $this->visit('/service/users');
 
-        $content = $this->page->content();
+        $content = $this->getPage()->content();
         static::assertStringContainsString('Alice', $content);
         static::assertStringContainsString('Bob', $content);
         static::assertStringContainsString('Charlie', $content);
@@ -59,7 +59,7 @@ class ServiceContainerTest extends PlaywrightTestCase
     {
         $this->visit('/service/user?id=1');
 
-        $content = $this->page->content();
+        $content = $this->getPage()->content();
         static::assertStringContainsString('"name":"Alice"', $content);
         static::assertStringContainsString('"email":"alice@example.com"', $content);
     }
@@ -75,7 +75,7 @@ class ServiceContainerTest extends PlaywrightTestCase
         static::assertNotNull($response);
         static::assertSame(404, $response->getStatusCode());
 
-        $content = $this->page->content();
+        $content = $this->getPage()->content();
         static::assertStringContainsString('User not found', $content);
     }
 
@@ -98,7 +98,7 @@ class ServiceContainerTest extends PlaywrightTestCase
         static::assertSame($initialCount + 1, $userRepository->count());
 
         $this->visit('/service/users');
-        $content = $this->page->content();
+        $content = $this->getPage()->content();
         static::assertStringContainsString('David', $content);
     }
 
@@ -118,7 +118,7 @@ class ServiceContainerTest extends PlaywrightTestCase
 
         $this->visit('/hello');
 
-        $result = $this->page->evaluate('async (data) => {
+        $result = $this->getPage()->evaluate('async (data) => {
             const response = await fetch("/service/user", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
@@ -144,7 +144,7 @@ class ServiceContainerTest extends PlaywrightTestCase
     {
         $this->visit('/hello');
 
-        $result = $this->page->evaluate('async (data) => {
+        $result = $this->getPage()->evaluate('async (data) => {
             const response = await fetch("/service/user", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},

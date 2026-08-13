@@ -15,8 +15,15 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Test;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Network\Request;
+use Playwright\Symfony\Asset\AssetMapperProxy;
+use Playwright\Symfony\Asset\FilesystemProxy;
+use Playwright\Symfony\Client\BrowserRegistry;
+use Playwright\Symfony\Client\BrowserSession;
+use Playwright\Symfony\Client\Interception\AssetServer;
+use Playwright\Symfony\Client\PlaywrightKernelClient;
 use Playwright\Symfony\Client\RequestConverter;
 use Playwright\Symfony\Client\ResponseConverter;
 use Playwright\Symfony\Test\PlaywrightTestCase;
@@ -25,7 +32,7 @@ use Playwright\Symfony\Tests\Fixtures\Client\FakePlaywrightKernelClient;
 use Playwright\Symfony\Tests\Fixtures\MockRequest;
 use Playwright\Symfony\Tests\Fixtures\Tests\ConcretePlaywrightTestCase;
 use Playwright\Symfony\Tests\Fixtures\Tests\TestablePlaywrightTestCase;
-use Psr\Log\NullLogger;
+use Playwright\Symfony\Util\CookieJarSync;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response;
@@ -35,6 +42,13 @@ use Symfony\Component\Security\Core\User\InMemoryUser;
 #[CoversClass(PlaywrightTestCase::class)]
 #[CoversClass(RequestConverter::class)]
 #[CoversClass(ResponseConverter::class)]
+#[UsesClass(AssetMapperProxy::class)]
+#[UsesClass(FilesystemProxy::class)]
+#[UsesClass(BrowserRegistry::class)]
+#[UsesClass(BrowserSession::class)]
+#[UsesClass(AssetServer::class)]
+#[UsesClass(PlaywrightKernelClient::class)]
+#[UsesClass(CookieJarSync::class)]
 class PlaywrightTestCaseTest extends TestCase
 {
     private ConcretePlaywrightTestCase $testCase;
@@ -52,7 +66,11 @@ class PlaywrightTestCaseTest extends TestCase
         $this->browser = new FakeBrowserRegistry();
         $this->lifecycleTestCase->setTestClient($this->client);
         $this->lifecycleTestCase->setTestBrowser($this->browser);
-        $this->lifecycleTestCase->setTestLogger(new NullLogger());
+    }
+
+    protected function tearDown(): void
+    {
+        TestablePlaywrightTestCase::tearDownAfterClass();
     }
 
     public function testExtendsWebTestCaseAndExposesSymfonyWebAssertions(): void
@@ -271,13 +289,47 @@ class PlaywrightTestCaseTest extends TestCase
         $this->assertTrue($this->testCase->publicIsHeadless());
     }
 
-    public function testMagicPropertyThrowsForUnknownName(): void
+    public function testSetUpDoesNotBootKernelOrStartBrowser(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage("Property 'unknown' does not exist");
+        $this->lifecycleTestCase->setTestClient(null);
 
-        /* @phpstan-ignore-next-line - accessing undefined property intentionally */
-        $this->lifecycleTestCase->unknown;
+        $this->lifecycleTestCase->callSetUp();
+
+        $this->assertFalse(TestablePlaywrightTestCase::isKernelBooted());
+        $this->assertFalse($this->browser->started);
+    }
+
+    public function testPrimaryClientIsCreatedLazilyAndReused(): void
+    {
+        $this->lifecycleTestCase->setTestClient(null);
+        $this->lifecycleTestCase->callSetUp();
+
+        $first = TestablePlaywrightTestCase::publicGetPlaywrightClient();
+        $second = TestablePlaywrightTestCase::publicGetPlaywrightClient();
+
+        $this->assertSame($first, $second);
+        $this->assertTrue(TestablePlaywrightTestCase::isKernelBooted());
+        $this->assertSame(1, $this->browser->sessionCount);
+
+        $this->lifecycleTestCase->callTearDown();
+    }
+
+    public function testCreatePlaywrightClientAlwaysCreatesAnIsolatedClient(): void
+    {
+        $this->lifecycleTestCase->setTestClient(null);
+        $this->lifecycleTestCase->callSetUp();
+
+        $primary = TestablePlaywrightTestCase::publicGetPlaywrightClient();
+        $first = TestablePlaywrightTestCase::publicCreatePlaywrightClient();
+        $second = TestablePlaywrightTestCase::publicCreatePlaywrightClient();
+
+        $this->assertNotSame($primary, $first);
+        $this->assertNotSame($primary->context(), $first->context());
+        $this->assertNotSame($first, $second);
+        $this->assertNotSame($first->context(), $second->context());
+        $this->assertSame(3, $this->browser->sessionCount);
+
+        $this->lifecycleTestCase->callTearDown();
     }
 
     public function testCookieAndAuthMethodsDelegateToClient(): void
@@ -363,11 +415,10 @@ class PlaywrightTestCaseTest extends TestCase
 
     public function testTearDownDoesNotStopBrowser(): void
     {
-        $this->lifecycleTestCase->setDebugLoggingFlag(true);
-
         $this->lifecycleTestCase->callTearDown();
 
         $this->assertFalse($this->browser->stopped, 'Browser should NOT be stopped during tearDown anymore');
+        $this->assertSame(1, $this->browser->resetCount);
     }
 
     public function testTearDownAfterClassStopsBrowser(): void
@@ -379,23 +430,14 @@ class PlaywrightTestCaseTest extends TestCase
         $this->assertTrue($this->browser->stopped, 'Browser should be stopped during tearDownAfterClass');
     }
 
-    public function testMagicSetThrowsException(): void
+    public function testClientBrowserAndBaseUrlPropertiesAreRemoved(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage("Property 'page' is read-only or does not exist");
+        $class = new \ReflectionClass(PlaywrightTestCase::class);
 
-        /* @phpstan-ignore-next-line - setting read-only property intentionally */
-        $this->lifecycleTestCase->page = 'value';
-    }
-
-    public function testMagicIssetReturnsTrueForPage(): void
-    {
-        $this->assertTrue(isset($this->lifecycleTestCase->page));
-    }
-
-    public function testMagicIssetReturnsFalseForOtherProperties(): void
-    {
-        $this->assertFalse(isset($this->lifecycleTestCase->unknown));
+        $this->assertFalse($class->hasProperty('client'));
+        $this->assertFalse($class->hasProperty('browser'));
+        $this->assertFalse($class->hasProperty('baseUrl'));
+        $this->assertFalse($class->hasProperty('page'));
     }
 
     public function testGetBaseUrlDelegatesToClient(): void

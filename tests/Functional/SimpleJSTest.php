@@ -33,19 +33,19 @@ final class SimpleJSTest extends PlaywrightTestCase
         $this->visit('/hello');
 
         // Test 1: Simple return value
-        $result1 = $this->page->evaluate('() => { return 42; }');
+        $result1 = $this->getPage()->evaluate('() => { return 42; }');
         $this->assertSame(42, $result1);
 
         // Test 2: Object return
-        $result2 = $this->page->evaluate('() => { return { test: "working" }; }');
+        $result2 = $this->getPage()->evaluate('() => { return { test: "working" }; }');
         $this->assertSame(['test' => 'working'], $result2);
 
         // Test 3: Window location
-        $result3 = $this->page->evaluate('() => { return window.location.href; }');
+        $result3 = $this->getPage()->evaluate('() => { return window.location.href; }');
         $this->assertStringStartsWith('http://localhost', $result3);
 
         // Test 4: Simple async
-        $result4 = $this->page->evaluate('async () => { return "async works"; }');
+        $result4 = $this->getPage()->evaluate('async () => { return "async works"; }');
         $this->assertSame('async works', $result4);
     }
 }

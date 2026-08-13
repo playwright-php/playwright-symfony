@@ -23,7 +23,7 @@ If your tests crawl external websites, you can speed them up by caching response
 ```php
 public function testWithMockedExternalApi(): void
 {
-    $this->browser->setupRouting(function ($route) {
+    $this->getPage()->route('**/*', function ($route) {
         $url = $route->request()->url();
         
         if (str_contains($url, 'external-api.com/data')) {
@@ -51,7 +51,7 @@ localStorage).
 public function testWithStorageState(): void
 {
     // Generate state once
-    $context = $this->browser->getContext();
+    $context = static::getPlaywrightClient()->context();
     // ... perform login ...
     $context->saveStorageState('var/storage/admin.json');
 
@@ -80,7 +80,7 @@ Then in your test:
 public function testMobileLayout(): void
 {
     // Use the page helper to set viewport at runtime
-    $this->page->setViewportSize(390, 844);
+    $this->getPage()->setViewportSize(390, 844);
     $this->visit('/');
     
     $this->assertSelectorVisible('.mobile-menu');

@@ -16,6 +16,7 @@ namespace Playwright\Symfony\Test;
 
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Client\BrowserRegistry;
+use Playwright\Symfony\Client\BrowserSessionInterface;
 use Playwright\Symfony\Client\Interception\AssetServer;
 use Playwright\Symfony\Client\PlaywrightKernelClient;
 use Playwright\Symfony\Client\RequestConverter;
@@ -39,20 +40,19 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  *
  * Architecture overview:
  * - Extends WebTestCase → uses Symfony's functional-test lifecycle and test container
- * - Creates shared BrowserRegistry → manages browser lifecycle across tests
- * - Creates PlaywrightKernelClient → intercepts requests and routes through kernel
- * - Provides $this->client for BrowserKit-style interactions
- * - Provides $this->page for direct Playwright API access
+ * - Lazily creates a shared BrowserRegistry → manages browser lifecycle across tests
+ * - Creates PlaywrightKernelClient instances → intercepts requests and routes through kernel
+ * - Reuses one browser process for isolated client contexts
  *
  * Key features:
  * - Browser sharing: One browser instance per test class (performance optimization)
- * - Context isolation: Browser context restarted between each test (clean state)
+ * - Context isolation: Client contexts are closed after each test
  * - Request interception: All requests to localhost/127.0.0.1 routed through kernel
  * - Asset optimization: Static assets served directly without kernel overhead
  * - Hook system: beforeRequest() and afterResponse() for custom logic
  *
  * How request flow works:
- * 1. Test calls visit('/login') or $this->client->request('GET', '/login')
+ * 1. Test calls visit('/login') or creates a Playwright client
  * 2. Browser navigates to http://localhost/login
  * 3. Request intercepted by PlaywrightKernelClient
  * 4. AssetServer checks if it's a static asset → serves directly if yes
@@ -67,8 +67,8 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  *
  * Common methods:
  * - visit(string $path): PageInterface → Navigate to path, returns Playwright page
- * - $this->client → PlaywrightKernelClient for BrowserKit API
- * - $this->page → Direct Playwright page access (magic property)
+ * - getPlaywrightClient() → primary PlaywrightKernelClient, created lazily
+ * - createPlaywrightClient() → fresh client with an isolated context and page
  * - setCookie(), authenticate(), logout() → Helpers for auth testing
  * - getLastRequest(), getLastResponse() → Inspect intercepted Symfony objects
  * - beforeRequest(), afterResponse() → Override for custom hooks
@@ -106,68 +106,22 @@ abstract class PlaywrightTestCase extends WebTestCase
     use PlaywrightTestAssertionsTrait;
 
     protected static ?BrowserRegistry $sharedBrowser = null;
-    protected BrowserRegistry $browser;
-    protected PlaywrightKernelClient $client;
-    protected string $baseUrl = 'http://localhost';
-    protected LoggerInterface $playwrightLogger;
-    protected bool $debugLogging = false;
+    protected static ?PlaywrightKernelClient $playwrightClient = null;
+    private static ?self $hookReceiver = null;
 
     protected function setUp(): void
     {
-        $this->playwrightLogger = new NullLogger();
-        $this->debugLogging = false;
-
         parent::setUp();
-        self::bootKernel();
-
-        $this->baseUrl = $this->resolveBaseUrl();
-        $this->debugLogging = $this->resolveDebugLogging();
-        $this->playwrightLogger = $this->resolveLogger();
-
-        $requestedBrowser = BrowserRegistry::fromEnvironment();
-        if (null !== self::$sharedBrowser && !self::$sharedBrowser->equals($requestedBrowser)) {
-            self::$sharedBrowser->stop();
-            self::$sharedBrowser = null;
-        }
-
-        if (null === self::$sharedBrowser) {
-            self::$sharedBrowser = $requestedBrowser;
-            self::$sharedBrowser->start();
-        } else {
-            self::$sharedBrowser->restartContext();
-        }
-        $this->browser = self::$sharedBrowser;
-
-        if ($this->debugLogging) {
-            $this->playwrightLogger->info('Playwright browser session ready', [
-                'browser' => $this->browser->getBrowserType(),
-                'headless' => $this->browser->isHeadless(),
-            ]);
-        }
-
-        if (null === self::$kernel) {
-            throw new \RuntimeException('Kernel must be booted before creating client');
-        }
-
-        $this->client = new PlaywrightKernelClient(
-            $this->browser,
-            self::$kernel,
-            new RequestConverter(),
-            new ResponseConverter(),
-            [],
-            $this->loadInterceptedHosts(),
-            $this,
-            $this->resolveAssetServer(),
-            $this->baseUrl,
-            $this->playwrightLogger,
-            $this->debugLogging,
-        );
-        self::getClient($this->client);
+        self::$hookReceiver = $this;
     }
 
     protected function tearDown(): void
     {
         $this->restoreExceptionHandlers();
+        self::$playwrightClient = null;
+        self::$hookReceiver = null;
+        self::$sharedBrowser?->resetSessions();
+
         parent::tearDown();
     }
 
@@ -177,8 +131,84 @@ abstract class PlaywrightTestCase extends WebTestCase
             self::$sharedBrowser->stop();
             self::$sharedBrowser = null;
         }
+        self::$playwrightClient = null;
+        self::$hookReceiver = null;
 
         parent::tearDownAfterClass();
+    }
+
+    /**
+     * Returns the primary client for the current test, creating it on first use.
+     *
+     * The same client is reused until tearDown() closes the test's browser sessions.
+     */
+    protected static function getPlaywrightClient(): PlaywrightKernelClient
+    {
+        $client = self::$playwrightClient ??= static::createPlaywrightClient();
+        self::getClient($client);
+
+        return $client;
+    }
+
+    /**
+     * Creates a client with an isolated browser context and page.
+     *
+     * Clients created during one test share its browser process and Symfony kernel.
+     */
+    protected static function createPlaywrightClient(): PlaywrightKernelClient
+    {
+        $browser = self::getSharedBrowser();
+
+        return self::createKernelClient($browser->createSession());
+    }
+
+    private static function getSharedBrowser(): BrowserRegistry
+    {
+        $requestedBrowser = BrowserRegistry::fromEnvironment();
+        if (null !== self::$sharedBrowser && !self::$sharedBrowser->equals($requestedBrowser)) {
+            self::$sharedBrowser->stop();
+            self::$sharedBrowser = null;
+        }
+
+        return self::$sharedBrowser ??= $requestedBrowser;
+    }
+
+    private static function createKernelClient(BrowserSessionInterface $session): PlaywrightKernelClient
+    {
+        if (null === self::$kernel) {
+            static::bootKernel();
+        }
+
+        if (null === self::$kernel) {
+            throw new \RuntimeException('Kernel must be booted before creating client');
+        }
+
+        $logger = self::resolveLogger();
+        $debugLogging = self::resolveDebugLogging();
+
+        if ($debugLogging) {
+            $logger->info('Playwright browser session ready', [
+                'browser' => self::$sharedBrowser?->getBrowserType(),
+                'headless' => self::$sharedBrowser?->isHeadless(),
+            ]);
+        }
+
+        $client = new PlaywrightKernelClient(
+            $session,
+            self::$kernel,
+            new RequestConverter(),
+            new ResponseConverter(),
+            [],
+            self::loadInterceptedHosts(),
+            self::$hookReceiver,
+            self::resolveAssetServer(),
+            self::resolveBaseUrl(),
+            $logger,
+            $debugLogging,
+        );
+        self::getClient($client);
+
+        return $client;
     }
 
     private function restoreExceptionHandlers(): void
@@ -214,12 +244,12 @@ abstract class PlaywrightTestCase extends WebTestCase
 
     protected function visit(string $path): PageInterface
     {
-        return $this->client->visit($path);
+        return static::getPlaywrightClient()->visit($path);
     }
 
     protected function getPage(): PageInterface
     {
-        $page = $this->client->getPage();
+        $page = static::getPlaywrightClient()->getPage();
         if (null === $page) {
             throw new \RuntimeException('No page available. Browser may not be started.');
         }
@@ -227,46 +257,27 @@ abstract class PlaywrightTestCase extends WebTestCase
         return $page;
     }
 
-    public function __get(string $name): mixed
-    {
-        if ('page' === $name) {
-            return $this->getPage();
-        }
-
-        throw new \InvalidArgumentException("Property '$name' does not exist");
-    }
-
-    public function __set(string $name, mixed $value): void
-    {
-        throw new \InvalidArgumentException("Property '$name' is read-only or does not exist");
-    }
-
-    public function __isset(string $name): bool
-    {
-        return 'page' === $name;
-    }
-
     /**
      * @param array<string, mixed> $options
      */
     protected function setCookie(string $name, string $value, array $options = []): void
     {
-        $this->client->setCookie($name, $value, $options);
+        static::getPlaywrightClient()->setCookie($name, $value, $options);
     }
 
     protected function getCookie(string $name, ?string $url = null): ?string
     {
-        return $this->client->getCookie($name, $url);
+        return static::getPlaywrightClient()->getCookie($name, $url);
     }
 
     protected function clearCookies(): void
     {
-        $this->client->clearCookies();
+        static::getPlaywrightClient()->clearCookies();
     }
 
     protected function clearCookie(string $name, ?string $domain = null, string $path = '/'): void
     {
-        $this->client->clearCookie($name, $domain, $path);
+        static::getPlaywrightClient()->clearCookie($name, $domain, $path);
     }
 
     /**
@@ -274,7 +285,7 @@ abstract class PlaywrightTestCase extends WebTestCase
      */
     protected function authenticate(string $identifier = 'user', array $context = []): void
     {
-        $this->client->authenticate($identifier, $context);
+        static::getPlaywrightClient()->authenticate($identifier, $context);
     }
 
     /**
@@ -285,38 +296,47 @@ abstract class PlaywrightTestCase extends WebTestCase
      */
     protected function loginUser(object $user, string $firewallContext = 'main', array $tokenAttributes = []): static
     {
-        $this->client->loginUser($user, $firewallContext, $tokenAttributes);
+        static::getPlaywrightClient()->loginUser($user, $firewallContext, $tokenAttributes);
 
         return $this;
     }
 
     protected function logout(string $firewallContext = 'main'): static
     {
-        $this->client->logout($firewallContext);
+        static::getPlaywrightClient()->logout($firewallContext);
 
         return $this;
     }
 
     protected function getLastRequest(): ?SymfonyRequest
     {
-        return $this->client->getLastSymfonyRequest();
+        return static::getPlaywrightClient()->getLastSymfonyRequest();
     }
 
     protected function getLastResponse(): ?SymfonyResponse
     {
-        return $this->client->getLastSymfonyResponse();
+        return static::getPlaywrightClient()->getLastSymfonyResponse();
     }
 
+    /**
+     * Returns the base URL configured for browser navigation.
+     */
     public function getBaseUrl(): string
     {
-        return $this->baseUrl;
+        return static::getPlaywrightClient()->getBaseUrl();
     }
 
+    /**
+     * Runs before each intercepted request is passed to the Symfony kernel.
+     */
     public function beforeRequest(SymfonyRequest $request): void
     {
         // Override to add custom logic before each request
     }
 
+    /**
+     * Runs after each intercepted response is returned by the Symfony kernel.
+     */
     public function afterResponse(SymfonyResponse $response): void
     {
         // Override to add custom logic after each response
@@ -330,7 +350,7 @@ abstract class PlaywrightTestCase extends WebTestCase
         // Override to load fixtures
     }
 
-    private function getTestContainer(): ContainerInterface
+    private static function getTestContainer(): ContainerInterface
     {
         if (null === self::$kernel) {
             throw new \RuntimeException('Kernel is not booted');
@@ -342,9 +362,9 @@ abstract class PlaywrightTestCase extends WebTestCase
     /**
      * Returns the "test.service_container" if available, otherwise the main container.
      */
-    private function getPreferredContainer(): ContainerInterface
+    private static function getPreferredContainer(): ContainerInterface
     {
-        $container = $this->getTestContainer();
+        $container = self::getTestContainer();
 
         if ($container->has('test.service_container')) {
             $testContainer = $container->get('test.service_container');
@@ -356,28 +376,28 @@ abstract class PlaywrightTestCase extends WebTestCase
         return $container;
     }
 
-    private function getContainerParam(string $name): mixed
+    private static function getContainerParam(string $name): mixed
     {
-        $container = $this->getPreferredContainer();
+        $container = self::getPreferredContainer();
 
         return $container->hasParameter($name) ? $container->getParameter($name) : null;
     }
 
-    private function getContainerService(string $id): mixed
+    private static function getContainerService(string $id): mixed
     {
-        $container = $this->getPreferredContainer();
+        $container = self::getPreferredContainer();
 
         return $container->has($id) ? $container->get($id) : null;
     }
 
-    private function resolveLogger(): LoggerInterface
+    private static function resolveLogger(): LoggerInterface
     {
         if (null === self::$kernel) {
             return new NullLogger();
         }
 
         foreach (['monolog.logger.playwright', 'logger'] as $serviceId) {
-            $candidate = $this->getContainerService($serviceId);
+            $candidate = self::getContainerService($serviceId);
             if ($candidate instanceof LoggerInterface) {
                 return $candidate;
             }
@@ -386,7 +406,7 @@ abstract class PlaywrightTestCase extends WebTestCase
         return new NullLogger();
     }
 
-    private function resolveDebugLogging(): bool
+    private static function resolveDebugLogging(): bool
     {
         /** @var string|bool|null $env */
         $env = $_ENV['PLAYWRIGHT_VERBOSE'] ?? $_SERVER['PLAYWRIGHT_VERBOSE'] ?? getenv('PLAYWRIGHT_VERBOSE');
@@ -398,19 +418,19 @@ abstract class PlaywrightTestCase extends WebTestCase
             return false;
         }
 
-        $param = $this->getContainerParam('playwright.debug_logging');
+        $param = self::getContainerParam('playwright.debug_logging');
 
         return null !== $param && (bool) $param;
     }
 
-    private function resolveBaseUrl(): string
+    private static function resolveBaseUrl(): string
     {
         $default = 'http://localhost';
         if (null === self::$kernel) {
             return $default;
         }
 
-        $param = $this->getContainerParam('playwright.base_url');
+        $param = self::getContainerParam('playwright.base_url');
 
         return is_string($param) ? $param : $default;
     }
@@ -418,14 +438,14 @@ abstract class PlaywrightTestCase extends WebTestCase
     /**
      * @return string[]
      */
-    private function loadInterceptedHosts(): array
+    private static function loadInterceptedHosts(): array
     {
         $defaultHosts = ['localhost', '127.0.0.1', 'testapp.local'];
         if (null === self::$kernel) {
             return $defaultHosts;
         }
 
-        $hosts = $this->getContainerParam('playwright.intercepted_hosts');
+        $hosts = self::getContainerParam('playwright.intercepted_hosts');
 
         if (is_array($hosts) && !empty($hosts)) {
             $stringHosts = array_filter($hosts, 'is_string');
@@ -438,13 +458,13 @@ abstract class PlaywrightTestCase extends WebTestCase
         return $defaultHosts;
     }
 
-    private function resolveAssetServer(): ?AssetServer
+    private static function resolveAssetServer(): ?AssetServer
     {
         if (null === self::$kernel) {
             return null;
         }
 
-        $service = $this->getContainerService(AssetServer::class);
+        $service = self::getContainerService(AssetServer::class);
 
         return $service instanceof AssetServer ? $service : null;
     }

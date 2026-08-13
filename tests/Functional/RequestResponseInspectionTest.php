@@ -68,8 +68,8 @@ final class RequestResponseInspectionTest extends PlaywrightTestCase
         $this->visit('/form');
 
         // Submit form with POST data
-        $this->page->locator('#name')->fill('Test User');
-        $this->page->locator('button[type="submit"]')->click();
+        $this->getPage()->locator('#name')->fill('Test User');
+        $this->getPage()->locator('button[type="submit"]')->click();
 
         $request = $this->getLastRequest();
 
@@ -133,9 +133,9 @@ final class RequestResponseInspectionTest extends PlaywrightTestCase
 
         // Validation error response
         $this->visit('/form');
-        $this->page->evaluate('() => { document.querySelector("#name").removeAttribute("required"); }');
-        $this->page->locator('#name')->fill('');
-        $this->page->locator('button[type="submit"]')->click();
+        $this->getPage()->evaluate('() => { document.querySelector("#name").removeAttribute("required"); }');
+        $this->getPage()->locator('#name')->fill('');
+        $this->getPage()->locator('button[type="submit"]')->click();
 
         $response2 = $this->getLastResponse();
         self::assertSame(400, $response2->getStatusCode());

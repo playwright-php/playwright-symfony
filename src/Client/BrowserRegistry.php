@@ -21,11 +21,11 @@ use Playwright\PlaywrightClient;
 use Playwright\PlaywrightFactory;
 
 /**
- * Registry for managing Playwright browser lifecycle, configuration, and shared instances.
+ * Manages a shared Playwright browser and the isolated sessions created from it.
  *
  * This class acts as a factory and lifecycle manager for Playwright browser contexts and pages.
- * It handles browser startup, shutdown, context recreation, and provides a centralized point
- * for browser configuration (browser type, headless mode, launch options).
+ * It handles browser startup, shutdown, session cleanup, and provides a centralized point for
+ * browser configuration (browser type, headless mode, launch options).
  *
  * Primary role in architecture:
  * - Used by PlaywrightTestCase to share a single browser instance across multiple tests
@@ -36,18 +36,16 @@ use Playwright\PlaywrightFactory;
  * Key responsibilities:
  * - Start/stop Playwright browsers (chromium, firefox, webkit)
  * - Create and manage browser contexts and pages
- * - Restart contexts between tests for isolation while reusing browser instance (performance)
+ * - Close contexts between tests for isolation while reusing the browser instance
  * - Set up routing callbacks for request interception via setupRouting()
  * - Read configuration from environment variables (PLAYWRIGHT_BROWSER, PLAYWRIGHT_HEADLESS)
  *
  * Usage:
  * - Typically instantiated via BrowserRegistry::fromEnvironment() in PlaywrightTestCase
  * - Browser instance is shared across tests in the same test class (static $sharedBrowser)
- * - Context is restarted between tests to ensure test isolation
+ * - Sessions are closed between tests to ensure test isolation
  *
  * This is NOT a browser itself - it's a registry/manager that creates and holds browser instances.
- *
- * @internal Used by PlaywrightTestCase and PlaywrightKernelClient
  *
  * @author Simon André <smn.andre@gmail.com>
  */
@@ -60,6 +58,8 @@ class BrowserRegistry implements BrowserSessionInterface
     private array $sessions = [];
 
     /**
+     * Configures the browser process shared by sessions created from this registry.
+     *
      * @param array<string, mixed> $launchOptions
      */
     public function __construct(
@@ -69,6 +69,9 @@ class BrowserRegistry implements BrowserSessionInterface
     ) {
     }
 
+    /**
+     * Starts the registry's primary session if it has not been started yet.
+     */
     public function start(): void
     {
         if (null !== $this->session) {
@@ -78,6 +81,9 @@ class BrowserRegistry implements BrowserSessionInterface
         $this->session = $this->createSession();
     }
 
+    /**
+     * Whether this registry uses the same browser configuration as another registry.
+     */
     public function equals(self $other): bool
     {
         return $this->browserType === $other->browserType
@@ -85,35 +91,48 @@ class BrowserRegistry implements BrowserSessionInterface
             && $this->launchOptions === $other->launchOptions;
     }
 
+    /**
+     * Closes every session, the shared browser, and its Playwright client process.
+     */
     public function stop(): void
     {
         // each close is best-effort: a broken connection - an exception thrown while handling a
         // routed request is re-raised by every later call - would otherwise abort before the
         // client is closed, leaving its Node process running for the rest of the PHP process
-        $sessions = $this->sessions;
-        if (null !== $this->session) {
-            $sessions[spl_object_id($this->session)] = $this->session;
-        }
-
-        foreach ($sessions as $session) {
-            $this->closeQuietly($session);
-        }
+        $this->resetSessions();
 
         // the browser and its Node process outlive the context, so they need closing too
         $this->closeQuietly($this->browser);
         $this->closeQuietly($this->client);
 
-        $this->session = null;
-        $this->sessions = [];
         $this->browser = null;
         $this->client = null;
     }
 
+    /**
+     * Closes every managed session while keeping the shared browser reusable.
+     */
+    public function resetSessions(): void
+    {
+        foreach ($this->sessions as $session) {
+            $this->closeQuietly($session);
+        }
+
+        $this->session = null;
+        $this->sessions = [];
+    }
+
+    /**
+     * Closes this registry and all resources it manages.
+     */
     public function close(): void
     {
         $this->stop();
     }
 
+    /**
+     * Replaces the primary session while keeping the shared browser running.
+     */
     public function restartContext(): void
     {
         $session = $this->session;
@@ -126,6 +145,9 @@ class BrowserRegistry implements BrowserSessionInterface
         $this->start();
     }
 
+    /**
+     * Returns the primary session's browser context, starting it when needed.
+     */
     public function getContext(): ?BrowserContextInterface
     {
         $this->ensureStarted();
@@ -133,6 +155,9 @@ class BrowserRegistry implements BrowserSessionInterface
         return $this->session?->getContext();
     }
 
+    /**
+     * Returns the primary session's page, starting it when needed.
+     */
     public function getPage(): ?PageInterface
     {
         $this->ensureStarted();
@@ -140,22 +165,34 @@ class BrowserRegistry implements BrowserSessionInterface
         return $this->session?->getPage();
     }
 
+    /**
+     * Registers request routing on the primary session's page.
+     */
     public function setupRouting(callable $routeHandler): void
     {
         $this->ensureStarted();
         $this->session?->setupRouting($routeHandler);
     }
 
+    /**
+     * Whether the browser is configured to run headless.
+     */
     public function isHeadless(): bool
     {
         return $this->headless;
     }
 
+    /**
+     * Returns the configured browser engine name.
+     */
     public function getBrowserType(): string
     {
         return $this->browserType;
     }
 
+    /**
+     * Creates a registry from PLAYWRIGHT_BROWSER and PLAYWRIGHT_HEADLESS.
+     */
     public static function fromEnvironment(): self
     {
         /** @var string|null $env */
@@ -225,6 +262,9 @@ class BrowserRegistry implements BrowserSessionInterface
 
     /**
      * Creates an isolated context and page while reusing the browser process.
+     *
+     * The returned session is managed by this registry and remains open until closeSession(),
+     * resetSessions(), or stop() closes it.
      */
     public function createSession(): BrowserSessionInterface
     {
@@ -237,6 +277,8 @@ class BrowserRegistry implements BrowserSessionInterface
 
     /**
      * Closes a session created by this registry without stopping the shared browser.
+     *
+     * @throws \InvalidArgumentException When the session is not managed by this registry
      */
     public function closeSession(BrowserSessionInterface $session): void
     {

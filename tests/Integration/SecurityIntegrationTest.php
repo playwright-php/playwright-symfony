@@ -96,7 +96,7 @@ final class SecurityIntegrationTest extends TestCase
         try {
             $testCase->runSetUp();
 
-            self::assertSame($testCase->getPlaywrightClient(), $testCase->getRegisteredClient());
+            self::assertSame($testCase->exposePlaywrightClient(), $testCase->getRegisteredClient());
         } finally {
             $testCase->runTearDown();
             PlaywrightSetupTestCase::tearDownAfterClass();
@@ -127,9 +127,9 @@ final class PlaywrightSetupTestCase extends PlaywrightTestCase
         $this->tearDown();
     }
 
-    public function getPlaywrightClient(): PlaywrightKernelClient
+    public function exposePlaywrightClient(): PlaywrightKernelClient
     {
-        return $this->client;
+        return static::getPlaywrightClient();
     }
 
     public function getRegisteredClient(): ?AbstractBrowser

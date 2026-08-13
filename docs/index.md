@@ -14,7 +14,7 @@ Symfony Kernel.
 - **DomCrawler Bridge**: Continue using the familiar Symfony `Crawler`, `Link`, and `Form` APIs while driving a real
   browser.
 - **Asset Serving**: Built-in support for serving static assets and AssetMapper content during in-process tests.
-- **Seamless DX**: Modern assertions and magic properties that feel exactly like native `WebTestCase`.
+- **Seamless DX**: Lazy client factories and modern assertions that feel like native `WebTestCase`.
 
 ## Documentation
 

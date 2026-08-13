@@ -91,6 +91,8 @@ For requests to an intercepted host, the package:
 
 This keeps JavaScript, CSS, navigation, cookies, and browser storage in a real browser while preserving access to the Symfony test container, request, response, and profiler.
 
+The kernel and browser start lazily when a browser helper or client is first used.
+
 ```php
 $this->visit('/admin');
 
@@ -99,6 +101,17 @@ $service = static::getContainer()->get(App\Service\AuditLog::class);
 ```
 
 Static files and AssetMapper output can be served directly by the asset bridge without passing through the kernel.
+
+## Multiple browser clients
+
+Use the primary client alongside fresh clients when a test needs isolated browser contexts:
+
+```php
+$alice = static::getPlaywrightClient();
+$bob = static::createPlaywrightClient();
+```
+
+The clients share the browser process and Symfony kernel, but not cookies or browser storage.
 
 ## Authentication
 

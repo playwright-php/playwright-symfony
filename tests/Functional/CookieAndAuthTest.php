@@ -57,7 +57,7 @@ final class CookieAndAuthTest extends PlaywrightTestCase
         $user = $provider->loadUserByIdentifier('admin@example.test');
 
         $this->loginUser($user);
-        $session = $this->client->getSession();
+        $session = static::getPlaywrightClient()->getSession();
         self::assertNotNull($session);
         self::assertSame($session->getId(), $this->getCookie($session->getName()));
         self::assertNotNull($session->get('_security_main'));

@@ -23,7 +23,7 @@ standard Zenstruck Browser:
 ```php
 use Zenstruck\Browser;
 // ...
-$browser = new Browser($this->client);
+$browser = new Browser(static::getPlaywrightClient());
 ```
 
 ### 2. Specialized Playwright Browser (Recommended)

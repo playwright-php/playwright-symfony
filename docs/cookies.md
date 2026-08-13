@@ -74,7 +74,7 @@ public function setCookie(string $name, string $value, array $options = []): voi
         'path' => $options['path'] ?? '/',
     ], $options);
     
-    $context = $this->browser->getContext();
+    $context = $this->session->getContext();
     $context->addCookies([$cookie]);
 }
 ```
@@ -283,7 +283,7 @@ protected function tearDown(): void
 
 ```php
 // Check what cookies browser has
-$cookies = $this->browser->getContext()->cookies();
+$cookies = static::getPlaywrightClient()->context()->cookies();
 foreach ($cookies as $cookie) {
     dump($cookie);
 }
@@ -296,9 +296,9 @@ foreach ($cookies as $cookie) {
 ```php
 public function testCookieCanBeSetAndRetrieved(): void
 {
-    $this->client->setCookie('test', 'value');
+    static::getPlaywrightClient()->setCookie('test', 'value');
     
-    $cookies = $this->browser->getContext()->cookies();
+    $cookies = static::getPlaywrightClient()->context()->cookies();
     
     $this->assertCount(1, $cookies);
     $this->assertSame('test', $cookies[0]['name']);
@@ -352,7 +352,7 @@ $this->clearCookies();
 
 ### Playwright Browser Context Methods
 
-Direct access via `$this->browser->getContext()`:
+Direct access via `static::getPlaywrightClient()->context()`:
 
 ```php
 // Add cookies
@@ -384,4 +384,3 @@ $context->clearCookies();
 - [Helper & Assertion Reference](helpers.md) - Cookie helper methods on `PlaywrightTestCase`
 - [Playwright Cookie API](https://playwright.dev/docs/api/class-browsercontext#browser-context-add-cookies) - Upstream
   documentation
-

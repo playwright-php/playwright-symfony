@@ -7,8 +7,8 @@ To use Playwright in your tests, extend `Playwright\Symfony\Test\PlaywrightTestC
 This class provides:
 
 - Automatic browser lifecycle management.
-- An initialized `PlaywrightClient`.
-- Magic access to the Playwright `Page` object.
+- A lazy primary `PlaywrightKernelClient`.
+- Fresh clients with isolated contexts and pages.
 
 ## Navigating
 
@@ -22,18 +22,18 @@ By default, this is prefixed with the `base_url` configuration.
 
 ## Interacting with the Page
 
-The `$this->page` magic property gives you direct access to
-the [Playwright Page API](https://playwright.dev/docs/api/class-page).
+The `getPage()` helper gives you direct access to the
+[Playwright Page API](https://playwright.dev/docs/api/class-page). The browser starts on the first call that needs it.
 
 ```php
 // Fill an input
-$this->page->locator('input[name="email"]')->fill('user@example.com');
+$this->getPage()->locator('input[name="email"]')->fill('user@example.com');
 
 // Click a button
-$this->page->locator('button.btn-primary')->click();
+$this->getPage()->locator('button.btn-primary')->click();
 
 // Wait for a selector to appear
-$this->page->waitForSelector('.success-message');
+$this->getPage()->waitForSelector('.success-message');
 ```
 
 ## Built-in Assertions
@@ -66,7 +66,7 @@ These check the response returned by the Symfony Kernel during the last intercep
 You can take screenshots at any point during your test:
 
 ```php
-$this->page->screenshot('var/screenshots/test.png');
+$this->getPage()->screenshot('var/screenshots/test.png');
 ```
 
 Or use the helper:

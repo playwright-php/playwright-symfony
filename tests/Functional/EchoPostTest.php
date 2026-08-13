@@ -33,7 +33,7 @@ final class EchoPostTest extends PlaywrightTestCase
         // Set origin to http://localhost first to avoid CORS preflight
         $this->visit('/hello');
 
-        $result = $this->page->evaluate(<<<'JS'
+        $result = $this->getPage()->evaluate(<<<'JS'
             async () => {
               const diagnostics = {
                 currentUrl: window.location.href,

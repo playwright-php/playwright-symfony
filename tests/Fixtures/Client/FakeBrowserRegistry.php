@@ -17,10 +17,16 @@ namespace Playwright\Symfony\Tests\Fixtures\Client;
 use Playwright\Browser\BrowserContextInterface;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Client\BrowserRegistry;
+use Playwright\Symfony\Client\BrowserSession;
+use Playwright\Symfony\Tests\Fixtures\Browser\DummyBrowserContext;
+use Playwright\Symfony\Tests\Fixtures\Browser\DummyPage;
 
 final class FakeBrowserRegistry extends BrowserRegistry
 {
     public bool $stopped = false;
+    public bool $started = false;
+    public int $resetCount = 0;
+    public int $sessionCount = 0;
 
     public function __construct(
         private readonly string $browserType = 'chromium',
@@ -31,12 +37,29 @@ final class FakeBrowserRegistry extends BrowserRegistry
 
     public function start(): void
     {
-        // no-op for tests
+        $this->started = true;
     }
 
     public function stop(): void
     {
         $this->stopped = true;
+    }
+
+    public function resetSessions(): void
+    {
+        ++$this->resetCount;
+    }
+
+    public function createSession(): BrowserSession
+    {
+        ++$this->sessionCount;
+
+        return new BrowserSession(new DummyBrowserContext(new DummyPage()));
+    }
+
+    public function equals(BrowserRegistry $other): bool
+    {
+        return true;
     }
 
     public function getContext(): ?BrowserContextInterface

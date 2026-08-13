@@ -14,6 +14,8 @@ Before 1.0, breaking changes are released in minor versions.
 
 ### Changed
 
+- **BC break:** `PlaywrightTestCase` now creates its primary client lazily through `getPlaywrightClient()`, while `createPlaywrightClient()` always returns a fresh client. The `$client`, `$browser`, `$baseUrl`, and magic `$page` instance properties have been removed.
+- `BrowserRegistry` and `PlaywrightKernelClient` are now public API. `BrowserSessionInterface` is the public session abstraction; its concrete implementation remains internal.
 - **BC break:** `PlaywrightTestCase` now extends `WebTestCase` instead of `KernelTestCase`. Subclasses that define members inherited from `WebTestCase`, such as `createClient()`, must use compatible signatures.
 - **BC break:** `PlaywrightTestCase::logout()` now accepts an optional firewall context and returns `static` instead of `void`. Overrides must change their signature to `logout(string $firewallContext = 'main'): static`.
 - **BC break:** `assertSelectorExists()`, `assertSelectorNotExists()`, `assertSelectorTextContains()`, and `assertResponseIsSuccessful()` now use the public static Symfony `WebTestCase` signatures. Overrides of the previous protected instance methods must be updated. Calls from tests remain compatible.

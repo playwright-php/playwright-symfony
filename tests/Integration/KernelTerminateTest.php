@@ -32,26 +32,26 @@ final class KernelTerminateTest extends PlaywrightTestCase
 
     public function testTerminateListenersRunForInterceptedRequests(): void
     {
-        $recorder = self::$kernel?->getContainer()->get(TerminateRecorder::class);
+        $recorder = self::getContainer()->get(TerminateRecorder::class);
 
         self::assertInstanceOf(TerminateRecorder::class, $recorder);
         self::assertSame([], $recorder->paths());
 
-        $this->client->visit('/hello');
+        static::getPlaywrightClient()->visit('/hello');
 
         self::assertSame(['/hello'], $recorder->paths());
     }
 
     public function testProfileIsSavedForInterceptedRequests(): void
     {
-        $profiler = self::$kernel?->getContainer()->get('profiler');
+        $profiler = self::getContainer()->get('profiler');
 
         self::assertInstanceOf(Profiler::class, $profiler);
         $profiler->enable();
 
-        $this->client->visit('/hello');
+        static::getPlaywrightClient()->visit('/hello');
 
         // the profile is only written to storage on kernel.terminate
-        self::assertInstanceOf(Profile::class, $this->client->getProfile());
+        self::assertInstanceOf(Profile::class, static::getPlaywrightClient()->getProfile());
     }
 }

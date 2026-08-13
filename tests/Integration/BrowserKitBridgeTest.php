@@ -33,7 +33,7 @@ final class BrowserKitBridgeTest extends PlaywrightTestCase
     public function testClickViaBrowserKit(): void
     {
         // Use the client provided by PlaywrightTestCase which is already configured for interception
-        $browserKit = $this->client;
+        $browserKit = static::getPlaywrightClient();
         $crawler = $browserKit->request('GET', '/');
 
         $link = $crawler->filterXPath('//a[@id="link-1"]')->link();
@@ -42,14 +42,14 @@ final class BrowserKitBridgeTest extends PlaywrightTestCase
         // Wait for browser to settle
         usleep(500000);
 
-        $this->assertSame($this->baseUrl.'/1/', $browserKit->getPage()->url());
+        $this->assertSame($this->getBaseUrl().'/1/', $browserKit->getPage()->url());
         // Relax assertion to ignore whitespace
         $this->assertStringContainsString('1', $browserKit->getCrawler()->filterXPath('//*[@id="current-path"]')->text());
     }
 
     public function testSubmitViaBrowserKit(): void
     {
-        $browserKit = $this->client;
+        $browserKit = static::getPlaywrightClient();
         $crawler = $browserKit->request('GET', '/form');
 
         $form = $crawler->filterXPath('//form')->form();
@@ -60,7 +60,7 @@ final class BrowserKitBridgeTest extends PlaywrightTestCase
 
     public function testCookieSync(): void
     {
-        $browserKit = $this->client;
+        $browserKit = static::getPlaywrightClient();
 
         // Set cookie via Playwright context (e.g. from a request)
         $browserKit->context()->addCookies([
@@ -82,7 +82,7 @@ final class BrowserKitBridgeTest extends PlaywrightTestCase
 
     private function getCookiesFromBrowser(): array
     {
-        $cookies = $this->client->context()->cookies();
+        $cookies = static::getPlaywrightClient()->context()->cookies();
         $list = [];
         foreach ($cookies as $c) {
             $list[$c['name']] = $c['value'];

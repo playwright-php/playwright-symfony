@@ -15,8 +15,7 @@ a real browser.
 
 ## Basic Usage
 
-In a `PlaywrightTestCase`, the `$this->client` (and the magic `$this->page` property) work together to provide this
-bridge.
+In a `PlaywrightTestCase`, create the client lazily when the test first needs the browser.
 
 ```php
 public function testNavigationWithDomCrawler(): void
@@ -25,17 +24,17 @@ public function testNavigationWithDomCrawler(): void
     $this->visit('/');
 
     // Get the crawler for the current page
-    $crawler = $this->client->getCrawler();
+    $crawler = static::getPlaywrightClient()->getCrawler();
 
     // Find a link using standard CSS selectors
     $link = $crawler->filter('a#dashboard-link')->link();
 
     // Click it using the BrowserKit API
     // This triggers a real click in Chromium/Firefox/WebKit
-    $this->client->click($link);
+    static::getPlaywrightClient()->click($link);
 
     // Assert on the new state
-    $this->assertStringContainsString('/dashboard', $this->client->getPage()->url());
+    $this->assertStringContainsString('/dashboard', static::getPlaywrightClient()->getPage()->url());
 }
 ```
 
@@ -47,12 +46,12 @@ selects, checkboxes, and file uploads.
 ```php
 public function testFormSubmission(): void
 {
-    $crawler = $this->client->request('GET', '/registration');
+    $crawler = static::getPlaywrightClient()->request('GET', '/registration');
     
     $form = $crawler->selectButton('Register')->form();
     
     // Fill the form using standard Symfony syntax
-    $this->client->submit($form, [
+    static::getPlaywrightClient()->submit($form, [
         'user[email]' => 'test@example.com',
         'user[password]' => 'password123',
         'user[terms]' => true,

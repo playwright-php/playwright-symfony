@@ -37,8 +37,8 @@ final class FormSubmissionTest extends PlaywrightTestCase
         $this->assertPageContains('<form method="POST"');
 
         // Fill the form and submit
-        $this->page->locator('input[name="name"]')->fill('TestUser');
-        $this->page->locator('button[type="submit"]')->click();
+        $this->getPage()->locator('input[name="name"]')->fill('TestUser');
+        $this->getPage()->locator('button[type="submit"]')->click();
 
         // Check if we get the expected response
         $this->assertPageContains('Hello TestUser');

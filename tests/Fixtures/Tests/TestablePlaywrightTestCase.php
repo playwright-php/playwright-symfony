@@ -15,13 +15,10 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Fixtures\Tests;
 
 use Playwright\Symfony\Client\BrowserRegistry;
-use Playwright\Symfony\Client\Interception\AssetServer;
 use Playwright\Symfony\Client\PlaywrightKernelClient;
 use Playwright\Symfony\Test\PlaywrightTestCase;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\HttpFoundation\Request;
+use Playwright\Symfony\Tests\Fixtures\App\TestKernel;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpKernel\KernelInterface;
 
@@ -29,113 +26,17 @@ class TestablePlaywrightTestCase extends PlaywrightTestCase
 {
     protected static function createKernel(array $options = []): KernelInterface
     {
-        return new class implements KernelInterface {
-            public function handle(Request $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
-            {
-                return new SymfonyResponse('test');
-            }
-
-            public function registerBundles(): iterable
-            {
-                return [];
-            }
-
-            public function registerContainerConfiguration($loader): void
-            {
-            }
-
-            public function boot(): void
-            {
-            }
-
-            public function shutdown(): void
-            {
-            }
-
-            public function getBundles(): array
-            {
-                return [];
-            }
-
-            public function getBundle(string $name): object
-            {
-                return new \stdClass();
-            }
-
-            public function locateResource(string $name): string
-            {
-                return '';
-            }
-
-            public function getEnvironment(): string
-            {
-                return 'test';
-            }
-
-            public function isDebug(): bool
-            {
-                return true;
-            }
-
-            public function getProjectDir(): string
-            {
-                return '';
-            }
-
-            public function getContainer(): object
-            {
-                return new class {
-                    public function hasParameter(string $name): bool
-                    {
-                        return false;
-                    }
-
-                    public function getParameter(string $name): mixed
-                    {
-                        return null;
-                    }
-                };
-            }
-
-            public function getStartTime(): float
-            {
-                return 0.0;
-            }
-
-            public function getCacheDir(): string
-            {
-                return '';
-            }
-
-            public function getBuildDir(): string
-            {
-                return '';
-            }
-
-            public function getLogDir(): string
-            {
-                return '';
-            }
-
-            public function getCharset(): string
-            {
-                return 'UTF-8';
-            }
-
-            public function terminate(Request $request, Response $response): void
-            {
-            }
-        };
+        return new TestKernel('test', false);
     }
 
-    public function setTestClient(PlaywrightKernelClient $client): void
+    public function setTestClient(?PlaywrightKernelClient $client): void
     {
-        $this->client = $client;
+        self::$playwrightClient = $client;
     }
 
     public function setTestBrowser(BrowserRegistry $browser): void
     {
-        $this->browser = $browser;
+        self::$sharedBrowser = $browser;
     }
 
     public static function setSharedBrowser(?BrowserRegistry $browser): void
@@ -143,19 +44,29 @@ class TestablePlaywrightTestCase extends PlaywrightTestCase
         self::$sharedBrowser = $browser;
     }
 
-    public function setTestLogger(LoggerInterface $logger): void
-    {
-        $this->playwrightLogger = $logger;
-    }
-
-    public function setDebugLoggingFlag(bool $debug): void
-    {
-        $this->debugLogging = $debug;
-    }
-
     public function callTearDown(): void
     {
         $this->tearDown();
+    }
+
+    public function callSetUp(): void
+    {
+        $this->setUp();
+    }
+
+    public static function publicGetPlaywrightClient(): PlaywrightKernelClient
+    {
+        return self::getPlaywrightClient();
+    }
+
+    public static function publicCreatePlaywrightClient(): PlaywrightKernelClient
+    {
+        return self::createPlaywrightClient();
+    }
+
+    public static function isKernelBooted(): bool
+    {
+        return self::$booted;
     }
 
     public function publicSetCookie(string $name, string $value, array $options = []): void
@@ -219,83 +130,6 @@ class TestablePlaywrightTestCase extends PlaywrightTestCase
     public function publicAfterResponse(SymfonyResponse $response): void
     {
         $this->afterResponse($response);
-    }
-
-    public function publicResolveBaseUrl(): string
-    {
-        $closure = \Closure::bind(
-            static fn (): string => $this->resolveBaseUrl(),
-            $this,
-            PlaywrightTestCase::class
-        );
-
-        return $closure();
-    }
-
-    public function publicResolveDebugLogging(): bool
-    {
-        $closure = \Closure::bind(
-            static fn (): bool => $this->resolveDebugLogging(),
-            $this,
-            PlaywrightTestCase::class
-        );
-
-        return $closure();
-    }
-
-    /**
-     * @return string[]
-     */
-    public function publicLoadInterceptedHosts(): array
-    {
-        $closure = \Closure::bind(
-            /**
-             * @return string[]
-             */
-            static fn (): array => $this->loadInterceptedHosts(),
-            $this,
-            PlaywrightTestCase::class
-        );
-
-        return $closure();
-    }
-
-    public function publicResolveAssetServer(): ?AssetServer
-    {
-        $closure = \Closure::bind(
-            static fn (): ?AssetServer => $this->resolveAssetServer(),
-            $this,
-            PlaywrightTestCase::class
-        );
-
-        return $closure();
-    }
-
-    public function publicResolveLogger(): LoggerInterface
-    {
-        $closure = \Closure::bind(
-            static fn (): LoggerInterface => $this->resolveLogger(),
-            $this,
-            PlaywrightTestCase::class
-        );
-
-        return $closure();
-    }
-
-    public function publicVisit(string $path): mixed
-    {
-        return $this->visit($path);
-    }
-
-    public function publicGetPage(): mixed
-    {
-        $closure = \Closure::bind(
-            static fn (): mixed => $this->getPage(),
-            $this,
-            PlaywrightTestCase::class
-        );
-
-        return $closure();
     }
 
     public function publicGetBaseUrl(): string

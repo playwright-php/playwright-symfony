@@ -33,8 +33,8 @@ final class FormValidationTest extends PlaywrightTestCase
         $this->visit('/form');
 
         // Fill form with valid data
-        $this->page->locator('#name')->fill('John Doe');
-        $this->page->locator('button[type="submit"]')->click();
+        $this->getPage()->locator('#name')->fill('John Doe');
+        $this->getPage()->locator('button[type="submit"]')->click();
 
         // Assert success message
         $this->assertPageContains('Hello John Doe');
@@ -48,11 +48,11 @@ final class FormValidationTest extends PlaywrightTestCase
         $this->visit('/form');
 
         // Remove HTML5 validation to test server-side validation
-        $this->page->evaluate('() => { document.querySelector("#name").removeAttribute("required"); }');
+        $this->getPage()->evaluate('() => { document.querySelector("#name").removeAttribute("required"); }');
 
         // Try to submit empty form
-        $this->page->locator('#name')->fill('');
-        $this->page->locator('button[type="submit"]')->click();
+        $this->getPage()->locator('#name')->fill('');
+        $this->getPage()->locator('button[type="submit"]')->click();
 
         // Should see validation error
         $this->assertPageContains('Name is required');
