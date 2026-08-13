@@ -1,85 +1,55 @@
 <div align="center">
-<img src="https://github.com/playwright-php/.github/raw/main/profile/playwright-php.png" alt="Playwright for PHP" />
+<a href="https://github.com/playwright-php"><img src="https://github.com/playwright-php/.github/raw/main/profile/playwright-php.png" alt="Playwright PHP" /></a>
+
+&nbsp; ![PHP Version](https://img.shields.io/badge/PHP-8.2+-05971B?labelColor=09161E&color=1D8D23&logoColor=FFFFFF)
+&nbsp; ![CI](https://img.shields.io/github/actions/workflow/status/playwright-php/playwright-symfony/CI.yml?branch=main&label=Tests&color=1D8D23&labelColor=09161E&logoColor=FFFFFF)
+&nbsp; [![Release](https://img.shields.io/github/v/release/playwright-php/playwright-symfony?label=Stable&labelColor=09161E&color=1D8D23&logoColor=FFFFFF)](https://packagist.org/packages/playwright-php/playwright-symfony)
+&nbsp; ![License](https://img.shields.io/github/license/playwright-php/playwright-symfony?label=License&labelColor=09161E&color=1D8D23&logoColor=FFFFFF)
+
 </div>
 
-# Playwright PHP Symfony Bundle
+# Playwright PHP for Symfony
 
-**E2E testing for Symfony with real browsers and in-process request handling.**
-
-Run Playwright browser tests while intercepting HTTP requests and routing them through your Symfony kernel in the same PHP process, giving you full access to services, the profiler, and application state.
+Run real-browser Symfony tests while routing application requests through the kernel in the same PHP process.
 
 > [!IMPORTANT]
-> **Alpha Status**
-> This bundle is in active development. Core features work well, but the API may change before stable release.
-
-## Why This Bundle?
-
-Traditional E2E testing requires running a separate web server. This bundle eliminates that overhead:
-
-- **In-Process Request Handling**: HTTP requests from the browser are handled by your Symfony kernel in the same PHP process
-- **DomCrawler Integration**: Use familiar Symfony `Crawler`, `Link`, and `Form` objects while driving a real browser
-- **Full Symfony Integration**: Access services, the profiler, events, and database state during tests
-- **Fast Asset Serving**: Static assets and AssetMapper files bypass the kernel for optimal performance
-- **Real Browser Testing**: Test with Chromium, Firefox, or WebKit using Playwright
-- **Shared Browser Session**: Optimized architecture reuses the same browser process across tests for maximum speed
+> This package is in active development. Its public API may change before 1.0.
 
 ## Installation
 
 ```bash
 composer require --dev playwright-php/playwright-symfony
-```
-
-### Prerequisites
-
-**Requirements:**
-- PHP 8.3+
-- Symfony 7.0+ or 8.0+
-- Node.js 20+ (for Playwright browser communication)
-
-Authentication through a real Symfony firewall is optional. The rest of the package works without SecurityBundle.
-Calling `loginUser()` without it throws a `LogicException` containing the installation command:
-
-```bash
-composer require symfony/security-bundle
-```
-
-**Install Playwright:**
-
-The bundle includes a helper to set up the Playwright environment and download browsers:
-
-```bash
-vendor/bin/playwright-install
 vendor/bin/playwright-install --browsers
 ```
 
-### Bundle Setup
+Requirements:
 
-The bundle auto-registers in `config/bundles.php` (test environment only):
+- PHP 8.2+
+- Symfony 6.4, 7.x, or 8.x
+- Node.js 20+
+
+Register the bundle for the test environment:
 
 ```php
+// config/bundles.php
 return [
     // ...
     Playwright\Symfony\PlaywrightSymfonyBundle::class => ['test' => true],
 ];
 ```
 
-**Optional configuration** in `config/packages/test/playwright.yaml`:
+The bundle works without additional configuration. To change the base URL or intercepted hosts:
 
 ```yaml
+# config/packages/test/playwright.yaml
 playwright:
     base_url: 'http://localhost'
     intercepted_hosts: ['localhost', '127.0.0.1']
-    debug_logging: false
 ```
-
-> [!TIP]
-> You can override these values per test run via environment variables, e.g. `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_VERBOSE`, and `PLAYWRIGHT_HEADLESS`.
-
-See [Configuration Reference](docs/configuration.md) for all options.
 
 ## Quick Start
 
-### 1. Create Your Test Base Class
+Extend `PlaywrightTestCase`, visit an application route, and use the regular Playwright page API:
 
 ```php
 <?php
@@ -87,348 +57,91 @@ See [Configuration Reference](docs/configuration.md) for all options.
 namespace App\Tests\E2E;
 
 use Playwright\Symfony\Test\PlaywrightTestCase;
-use Symfony\Component\HttpKernel\KernelInterface;
 
-abstract class E2ETest extends PlaywrightTestCase
+final class HomepageTest extends PlaywrightTestCase
 {
-    protected static function createKernel(array $options = []): KernelInterface
+    public function testNavigation(): void
     {
-        return new \App\Kernel('test', false);
+        $page = $this->visit('/');
+
+        self::assertResponseIsSuccessful();
+        $page->getByRole('link', ['name' => 'About'])->click();
+
+        $this->assertPageContains('About');
     }
 }
 ```
 
-### 2. Write Your First Test
-
-```php
-<?php
-
-namespace App\Tests\E2E;
-
-class LoginTest extends E2ETest
-{
-    public function testUserLogin(): void
-    {
-        // Navigate to login page
-        $page = $this->visit('/login');
-
-        // Fill form using Playwright API
-        $page->fill('#email', 'user@example.com');
-        $page->fill('#password', 'secret');
-        $page->click('button[type="submit"]');
-
-        // Assert success
-        $this->assertPageContains('Dashboard');
-
-        // Inspect intercepted response
-        $this->assertSame(200, $this->getLastResponse()->getStatusCode());
-    }
-}
-```
-
-### 3. Run Your Tests
+Run the test with PHPUnit:
 
 ```bash
-# Run the E2E tests
 vendor/bin/phpunit tests/E2E
-
-# Run with visible browser for debugging
-PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
 ```
 
-> **Note:** Browser tests run with the rest of your suite. Use PHPUnit's own selection (a dedicated `<testsuite>`, `--exclude-group`, `--filter`) to leave them out of a run.
+Set `PLAYWRIGHT_HEADLESS=false` to see the browser, or `PLAYWRIGHT_BROWSER=firefox` to use another engine.
 
 ## How It Works
 
-### Request Interception Flow
+For requests to an intercepted host, the package:
 
-1. Test calls `visit('/login')` → browser navigates to `http://localhost/login`
-2. Bundle intercepts the request via Playwright's routing API
-3. Request is converted to Symfony Request and handled by your kernel **in the same PHP process**
-4. Response is sent back to the browser
-5. Test continues with the rendered page
+1. Intercepts the browser request through Playwright.
+2. Converts it to a Symfony request.
+3. Handles it with the application kernel.
+4. Returns the Symfony response to the browser.
 
-### Key Benefits
-
-- **Access Symfony Services**: Query the database, inspect services, verify event dispatch
-- **Set Breakpoints**: Debug your controllers while the browser waits
-- **No Separate Server**: No need to start `symfony serve` or configure ports
-- **Fast Assets**: Static files and AssetMapper assets are served directly, bypassing the kernel
-- **Inspect Everything**: Access `getLastRequest()` and `getLastResponse()` in your tests
-
-## Usage Notes
-
-- `PlaywrightTestCase` extends Symfony's `WebTestCase`. Its intercepted client is registered with the inherited
-  assertion layer, so helpers such as `assertResponseIsSuccessful()`, `assertRouteSame()`, and
-  `assertSelectorExists()` work against the latest intercepted request, response, and browser page.
-- `PlaywrightTestCase` drives a real browser. Calling `request()` (the traditional BrowserKit API) on the underlying client performs a plain GET navigation: POST requests, parameters and request bodies are not routed through the kernel yet. Always prefer `visit()` and the Playwright Page API. If you need classic BrowserKit semantics against real HTTP, use [`Playwright\Symfony\BrowserKit\PlaywrightClient`](docs/bridge/browserkit.md) from the container; it reuses the bundle's Playwright context.
-- Set `PLAYWRIGHT_BASE_URL` (or the `playwright.base_url` config) to match the hostnames you intercept; this also controls which cookies are set when calling helper methods like `authenticate()`.
-
-## Asset Dev Server
-
-Static files (including AssetMapper output) are served by the in-process `AssetServer`, so requests under `/assets`, `/build`, and other configured prefixes never touch the kernel. Customize prefixes, additional `public_roots`, and cache behavior via `playwright.assets`: see [`docs/asset-dev-server.md`](docs/asset-dev-server.md) for a full walkthrough and troubleshooting tips.
-
-## Common Scenarios
-
-### Authentication & Cookies
+This keeps JavaScript, CSS, navigation, cookies, and browser storage in a real browser while preserving access to the Symfony test container, request, response, and profiler.
 
 ```php
-use App\Repository\UserRepository;
+$this->visit('/admin');
 
-public function testAdminAccess(): void
-{
-    $user = static::getContainer()
-        ->get(UserRepository::class)
-        ->findOneBy(['email' => 'admin@example.com']);
-    self::assertNotNull($user);
-
-    $this->loginUser($user);
-
-    $page = $this->visit('/admin');
-    $this->assertPageContains('Admin Dashboard');
-
-    // Logout and verify access denied
-    $this->logout();
-    $this->visit('/admin');
-    $this->assertPageContains('Access Denied');
-}
-
-public function testCookiePreferences(): void
-{
-    $this->setCookie('theme', 'dark');
-    $this->visit('/');
-    $this->assertSelectorExists('.dark-theme');
-}
+self::assertSame(200, $this->getLastResponse()?->getStatusCode());
+$service = static::getContainer()->get(App\Service\AuditLog::class);
 ```
 
-### JavaScript & Async Interactions
+Static files and AssetMapper output can be served directly by the asset bridge without passing through the kernel.
+
+## Authentication
+
+Use `loginUser()` when login itself is not under test:
 
 ```php
-public function testDynamicContent(): void
-{
-    $page = $this->visit('/dashboard');
+$this->loginUser($user);
 
-    // Execute JavaScript
-    $version = $page->evaluate('() => window.appVersion');
-    $this->assertEquals('2.0.0', $version);
-
-    // Click and wait for AJAX
-    $page->click('#load-more');
-    $page->waitForSelector('.item-5');
-    $this->assertPageContains('Item 5');
-}
+$page = $this->visit('/account');
+$this->assertPageContains($user->getUserIdentifier());
 ```
 
-### Form Submissions & File Uploads
+The package also provides cookie helpers and access to the last intercepted request and response.
 
-```php
-public function testFormSubmission(): void
-{
-    $page = $this->visit('/contact');
+## Limits
 
-    $page->fill('input[name="name"]', 'John Doe');
-    $page->fill('textarea[name="message"]', 'Hello');
-    $page->setInputFiles('input[type="file"]', '/path/to/file.pdf');
-    $page->click('button[type="submit"]');
-
-    $this->assertPageContains('Message sent');
-    $this->assertSame(200, $this->getLastResponse()->getStatusCode());
-}
-```
+- `PlaywrightTestCase` is for browser navigation. Prefer `visit()` and the Playwright page API over direct BrowserKit requests.
+- Only configured hosts are routed through the Symfony kernel. Other requests use the browser network normally.
+- Browser tests are slower than unit and functional tests. Keep them in a dedicated PHPUnit suite or group.
 
 ## Documentation
 
-- **[Getting Started Guide](docs/getting-started.md)** - Detailed installation and setup
-- **[Helper & Assertion Reference](docs/helpers.md)** - Complete API documentation
-- **[Configuration Reference](docs/configuration.md)** - All configuration options
-- **[Architecture Overview](docs/architecture.md)** - How the bundle works internally
-- **[Logging Guide](docs/logging.md)** - Debug request interception
-
-## Testing Helpers
-
-The bundle provides many helpers for common testing scenarios:
-
-| Helper | Purpose |
-|--------|---------|
-| `visit($path)` | Navigate to a path and return the Playwright Page |
-| `loginUser($user, $firewallContext, $tokenAttributes)` | Authenticate with Symfony's real firewall |
-| `authenticate($identifier, $context)` | Set the legacy custom `AUTH` cookie |
-| `logout($firewallContext)` | Clear custom and Symfony firewall authentication |
-| `setCookie($name, $value)` | Set a cookie in the browser |
-| `getLastRequest()` | Access the intercepted Symfony Request |
-| `getLastResponse()` | Access the intercepted Symfony Response |
-| `assertPageContains($text)` | Assert text appears in page HTML |
-| `assertSelectorExists($selector)` | Assert CSS selector exists |
-
-See [Helper Reference](docs/helpers.md) for the complete list.
-
-## Advanced Features
-
-### Request/Response Hooks
-
-Customize request handling by overriding hooks in your test class:
-
-```php
-public function beforeRequest(SymfonyRequest $request): void
-{
-    // Modify requests before they reach the kernel
-    $request->headers->set('X-Test-User', 'test-123');
-}
-
-public function afterResponse(SymfonyResponse $response): void
-{
-    // Inspect or modify responses
-    $this->assertLessThan(300, $response->headers->get('X-Response-Time'));
-}
-```
-
-### Fixture Loading
-
-Override `loadFixtures()` to centralize test data setup:
-
-```php
-protected function loadFixtures(array $fixtures): void
-{
-    $em = static::getContainer()->get('doctrine.orm.entity_manager');
-
-    foreach ($fixtures['users'] ?? [] as $userData) {
-        $user = new User($userData['email'], $userData['password']);
-        $em->persist($user);
-    }
-
-    $em->flush();
-}
-
-public function testWithFixtures(): void
-{
-    $this->loadFixtures([
-        'users' => [['email' => 'test@example.com', 'password' => 'secret']],
-    ]);
-
-    // Test with loaded data...
-}
-```
-
-## Environment Variables
-
-Control test behavior with environment variables:
-
-```bash
-# Show browser window (default: headless)
-PLAYWRIGHT_HEADLESS=false
-
-# Choose browser engine (default: chromium)
-PLAYWRIGHT_BROWSER=firefox  # or webkit
-
-# Enable verbose logging
-PLAYWRIGHT_VERBOSE=1
-
-# Custom kernel class
-KERNEL_CLASS=App\\CustomKernel
-```
-
-## Debugging
-
-### Visible Browser Mode
-
-Run tests with a visible browser to see what's happening:
-
-```bash
-PLAYWRIGHT_HEADLESS=false vendor/bin/phpunit tests/E2E
-```
-
-### Inspect Requests & Responses
-
-Access intercepted HTTP traffic in your tests:
-
-```php
-public function testDebugRequest(): void
-{
-    $page = $this->visit('/api/users');
-
-    // Inspect the intercepted request
-    $request = $this->getLastRequest();
-    dump($request->headers->all());
-
-    // Inspect the intercepted response
-    $response = $this->getLastResponse();
-    dump($response->getContent());
-}
-```
-
-### Enable Request Logging
-
-See [Logging Guide](docs/logging.md) for detailed request logs:
-
-```yaml
-# config/packages/test/playwright.yaml
-playwright:
-    debug_logging: true
-```
-
-## CI/CD Integration
-
-Example GitHub Actions workflow:
-
-```yaml
-# .github/workflows/e2e.yml
-name: E2E Tests
-on: [push, pull_request]
-
-jobs:
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-
-      - run: composer install
-      - run: vendor/bin/playwright-install --with-deps
-
-      - name: Run E2E tests
-        run: vendor/bin/phpunit tests/E2E
-        env:
-          PLAYWRIGHT_HEADLESS: 'true'
-```
-
-## Comparison with other tools
-
-| Feature | WebTestCase | Panther | PlaywrightTestCase |
-|---------|-------------|---------|-------------------|
-| Real browser | No | Yes | Yes |
-| JavaScript execution | No | Yes | Yes |
-| In-process requests | Yes | No | Yes |
-| No external web server | Yes | No | Yes |
-| CSS rendering | No | Yes | Yes |
-| AJAX & async requests | Limited | Full support | Full support |
-| Screenshots & videos | No | Yes | Yes |
-| Performance | Fast | Slow | Fast (optimized) |
-
-**Use WebTestCase for:** API testing, simple form submissions, fast unit-like functional tests.
-
-**Use Panther for:** Standard Selenium-style E2E testing when you need a real web server.
-
-**Use PlaywrightTestCase for:** Complex UIs, JavaScript-heavy apps, and high-performance E2E testing with full kernel access.
-
-## Known Limitations
-
-- **Browser-managed redirects:** When a navigation triggers an HTTP redirect, the browser sometimes follows it before the bundle can intercept the follow-up request. If the redirect target points to a host that is not intercepted, you may see `ERR_CONNECTION_REFUSED`. Work around this by keeping redirects on intercepted hosts or by handling the redirect inside your application logic.
-- **AssetMapper vs. Kernel bridge:** Both the in-process AssetServer and the legacy KernelBrowser-based bridge exist. Prefer AssetServer for deterministic tests; only rely on the bridge if you explicitly need KernelBrowser semantics.
-
-## Requirements
-
-- PHP 8.3+
-- Symfony 7.0+ or 8.0+
-- Node.js 20+
-- Playwright browsers
+- [Getting started](docs/getting-started.md)
+- [Configuration](docs/configuration.md)
+- [Test helpers](docs/helpers.md)
+- [Asset development server](docs/asset-dev-server.md)
+- [Continuous integration](docs/ci.md)
+- [Architecture](docs/architecture.md)
 
 ## Contributing
 
-This bundle is in alpha. Please report issues and contribute improvements at:
-https://github.com/playwright-php/playwright-symfony
+Contributions are welcome. Before submitting a pull request, run:
+
+```bash
+composer install
+vendor/bin/playwright-install --browsers
+composer cs-check
+vendor/bin/phpstan analyse
+composer test
+```
+
+Changes to public behavior should include tests and documentation.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
+Playwright PHP for Symfony is released under the [MIT License](LICENSE).
