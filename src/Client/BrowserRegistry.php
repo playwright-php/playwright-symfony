@@ -55,8 +55,7 @@ class BrowserRegistry
 {
     private ?PlaywrightClient $client = null;
     private ?BrowserInterface $browser = null;
-    private ?BrowserContextInterface $context = null;
-    private ?PageInterface $page = null;
+    private ?BrowserSession $session = null;
 
     /**
      * @param array<string, mixed> $launchOptions
@@ -70,13 +69,11 @@ class BrowserRegistry
 
     public function start(): void
     {
-        if (null !== $this->context) {
+        if (null !== $this->session) {
             return;
         }
 
-        $this->browser ??= $this->launchBrowser();
-        $this->context = $this->browser->newContext($this->contextOptions());
-        $this->page = $this->context->newPage();
+        $this->session = $this->createSession();
     }
 
     public function equals(self $other): bool
@@ -91,28 +88,22 @@ class BrowserRegistry
         // each close is best-effort: a broken connection - an exception thrown while handling a
         // routed request is re-raised by every later call - would otherwise abort before the
         // client is closed, leaving its Node process running for the rest of the PHP process
-        $this->closeQuietly($this->context);
+        $this->closeQuietly($this->session);
 
         // the browser and its Node process outlive the context, so they need closing too
         $this->closeQuietly($this->browser);
         $this->closeQuietly($this->client);
 
-        $this->page = null;
-        $this->context = null;
+        $this->session = null;
         $this->browser = null;
         $this->client = null;
     }
 
     public function restartContext(): void
     {
-        if (null !== $this->page) {
-            $this->page->close();
-            $this->page = null;
-        }
-        if (null !== $this->context) {
-            $this->context->close();
-            $this->context = null;
-        }
+        $this->session?->close();
+        $this->session = null;
+
         $this->start();
     }
 
@@ -120,22 +111,20 @@ class BrowserRegistry
     {
         $this->ensureStarted();
 
-        return $this->context;
+        return $this->session?->getContext();
     }
 
     public function getPage(): ?PageInterface
     {
         $this->ensureStarted();
 
-        return $this->page;
+        return $this->session?->getPage();
     }
 
     public function setupRouting(callable $routeHandler): void
     {
         $this->ensureStarted();
-        if (null !== $this->page) {
-            $this->page->route('**/*', $routeHandler);
-        }
+        $this->session?->setupRouting($routeHandler);
     }
 
     public function isHeadless(): bool
@@ -215,7 +204,14 @@ class BrowserRegistry
         return $typed;
     }
 
-    private function closeQuietly(BrowserContextInterface|BrowserInterface|PlaywrightClient|null $closable): void
+    private function createSession(): BrowserSession
+    {
+        $this->browser ??= $this->launchBrowser();
+
+        return new BrowserSession($this->browser->newContext($this->contextOptions()));
+    }
+
+    private function closeQuietly(BrowserSession|BrowserInterface|PlaywrightClient|null $closable): void
     {
         try {
             $closable?->close();
@@ -226,7 +222,7 @@ class BrowserRegistry
 
     private function ensureStarted(): void
     {
-        if (null === $this->context) {
+        if (null === $this->session) {
             $this->start();
         }
     }
