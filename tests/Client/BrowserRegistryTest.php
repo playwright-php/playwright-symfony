@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 use Playwright\Browser\BrowserContextInterface;
 use Playwright\PlaywrightClient;
 use Playwright\Symfony\Client\BrowserRegistry;
+use Playwright\Symfony\Client\BrowserSession;
 use Playwright\Symfony\Tests\Fixtures\Browser\DummyBrowserContext;
 use Playwright\Symfony\Tests\Fixtures\Browser\DummyPage;
 
@@ -78,12 +79,8 @@ class BrowserRegistryTest extends TestCase
 
         $browser = new BrowserRegistry('chromium', true);
 
-        $refContext = new \ReflectionProperty(BrowserRegistry::class, 'context');
-
-        $refContext->setValue($browser, $context);
-
-        $refPage = new \ReflectionProperty(BrowserRegistry::class, 'page');
-        $refPage->setValue($browser, $page);
+        $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
+        $refSession->setValue($browser, new BrowserSession($context));
 
         $result = $browser->getPage();
 
@@ -97,12 +94,8 @@ class BrowserRegistryTest extends TestCase
 
         $browser = new BrowserRegistry('chromium', true);
 
-        $refContext = new \ReflectionProperty(BrowserRegistry::class, 'context');
-
-        $refContext->setValue($browser, $context);
-
-        $refPage = new \ReflectionProperty(BrowserRegistry::class, 'page');
-        $refPage->setValue($browser, $page);
+        $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
+        $refSession->setValue($browser, new BrowserSession($context));
 
         $handler = static function (): void {
         };
@@ -121,17 +114,13 @@ class BrowserRegistryTest extends TestCase
 
         $browser = new BrowserRegistry('chromium', true);
 
-        $refContext = new \ReflectionProperty(BrowserRegistry::class, 'context');
-        $refContext->setValue($browser, $context);
-
-        $refPage = new \ReflectionProperty(BrowserRegistry::class, 'page');
-        $refPage->setValue($browser, $page);
+        $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
+        $refSession->setValue($browser, new BrowserSession($context));
 
         $browser->stop();
 
         $this->assertTrue($context->closed);
-        $this->assertNull($refContext->getValue($browser));
-        $this->assertNull($refPage->getValue($browser));
+        $this->assertNull($refSession->getValue($browser));
     }
 
     public function testStopClosesTheClientWhenTheContextCannotBeClosed(): void
@@ -144,15 +133,15 @@ class BrowserRegistryTest extends TestCase
 
         $browser = new BrowserRegistry('chromium', true);
 
-        $refContext = new \ReflectionProperty(BrowserRegistry::class, 'context');
-        $refContext->setValue($browser, $context);
+        $refSession = new \ReflectionProperty(BrowserRegistry::class, 'session');
+        $refSession->setValue($browser, new BrowserSession($context));
 
         $refClient = new \ReflectionProperty(BrowserRegistry::class, 'client');
         $refClient->setValue($browser, $client);
 
         $browser->stop();
 
-        $this->assertNull($refContext->getValue($browser));
+        $this->assertNull($refSession->getValue($browser));
         $this->assertNull($refClient->getValue($browser));
     }
 
