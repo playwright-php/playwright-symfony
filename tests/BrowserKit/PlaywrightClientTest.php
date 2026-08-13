@@ -20,15 +20,15 @@ use PHPUnit\Framework\TestCase;
 use Playwright\Exception\TimeoutException;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\BrowserKit\PlaywrightClient;
+use Playwright\Symfony\Cookie\CookieJar as PlaywrightCookieJar;
 use Playwright\Symfony\Tests\Client\Fixtures\FakeBrowserContext;
 use Playwright\Symfony\Tests\Client\Fixtures\FakePage;
-use Playwright\Symfony\Util\CookieJarSync;
 use Playwright\Symfony\Util\XPathHelper;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Link;
 
 #[CoversClass(PlaywrightClient::class)]
-#[UsesClass(CookieJarSync::class)]
+#[UsesClass(PlaywrightCookieJar::class)]
 #[UsesClass(XPathHelper::class)]
 final class PlaywrightClientTest extends TestCase
 {

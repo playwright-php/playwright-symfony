@@ -79,10 +79,10 @@ Unlike standard `WebTestCase`, calling `click()` or `submit()` through the bridg
 - Executes CSS transitions and animations.
 - Respects `target="_blank"` and other browser-native behaviors.
 
-### Automatic State Synchronization
+### Cookies Come From the Browser
 
-The bridge includes a synchronization layer (`CookieJarSync`) that ensures cookies set by the browser (via JS) and
-cookies set by Symfony (via Headers) are always consistent within your test session.
+`getCookieJar()` returns a BrowserKit jar backed by the browser context. Cookies set by the browser (via JS) and
+cookies set by Symfony (via headers) live in one store, so there is nothing to keep consistent.
 
 ### Asynchronous Resilience
 
