@@ -18,7 +18,7 @@ use Playwright\Browser\BrowserContextInterface;
 use Playwright\Network\RequestInterface;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Client\Interception\AssetServer;
-use Playwright\Symfony\Util\CookieJarSync;
+use Playwright\Symfony\Cookie\CookieJar;
 use Playwright\Symfony\Util\FormInteractor;
 use Playwright\Symfony\Util\XPathHelper;
 use Psr\Log\LoggerInterface;
@@ -188,7 +188,9 @@ class PlaywrightKernelClient extends AbstractBrowser
         private ?LoggerInterface $logger = null,
         private readonly bool $debugLogging = false,
     ) {
-        parent::__construct($server);
+        $context = $browser->getContext();
+
+        parent::__construct($server, cookieJar: $context ? new CookieJar($context, static fn (): string => parse_url($baseUrl, \PHP_URL_HOST) ?: 'localhost') : null);
 
         $this->session = $browser;
 
@@ -203,10 +205,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         // registered before any route a test adds, so those run first and can fall back to the kernel
         $this->setupRequestInterception();
 
-        if ($context = $this->session->getContext()) {
-            $context->addInitScript(self::FETCH_REDIRECT_SCRIPT);
-            CookieJarSync::fromContext($this->getCookieJar(), $context);
-        }
+        $context?->addInitScript(self::FETCH_REDIRECT_SCRIPT);
     }
 
     /**
@@ -231,10 +230,6 @@ class PlaywrightKernelClient extends AbstractBrowser
         }
 
         $page->goto($url);
-
-        if ($context = $this->session->getContext()) {
-            CookieJarSync::toJarFromUrl($this->getCookieJar(), $context, $page->url());
-        }
 
         return $page;
     }
@@ -394,7 +389,6 @@ class PlaywrightKernelClient extends AbstractBrowser
         }
 
         $context->addCookies([$cookie]);
-        CookieJarSync::toJarFromUrl($this->getCookieJar(), $context, $this->getBaseUrl());
     }
 
     /**

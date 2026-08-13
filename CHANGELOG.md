@@ -7,6 +7,11 @@ Before 1.0, breaking changes are released in minor versions.
 
 ## [Unreleased]
 
+### Changed
+
+- `getCookieJar()` now returns a jar backed by the browser context, so it reads the cookies the browser actually holds and writing to it reaches the browser. The internal `CookieJarSync`, which copied cookies into a separate jar at a few fixed points, is gone.
+- **BC break:** cookies in a `CookieJar` passed to `PlaywrightClient` are now written into the browser context. They were previously overwritten by the context's own cookies and never sent.
+
 ## [0.12.0] - 2026-11-06
 
 ### Changed

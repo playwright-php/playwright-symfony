@@ -368,6 +368,24 @@ $context->deleteCookie(string $name);
 $context->clearCookies();
 ```
 
+### BrowserKit Cookie Jar
+
+`getCookieJar()` returns a jar backed by the browser context, so it reflects what the browser holds, including cookies
+set by javascript, and writing to it reaches the browser:
+
+```php
+use Symfony\Component\BrowserKit\Cookie;
+
+$jar = $client->getCookieJar();
+
+$jar->set(new Cookie('notice', '1', domain: 'localhost'));
+$jar->get('notice');
+$jar->expire('notice'); // removes every domain and path variant of the name
+$jar->clear();
+```
+
+A cookie set without a domain is scoped to the host being browsed.
+
 ## Best Practices
 
 1. ✅ **Always use domain parameter** instead of url
