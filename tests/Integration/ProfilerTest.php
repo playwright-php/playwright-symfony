@@ -56,6 +56,19 @@ final class ProfilerTest extends PlaywrightTestCase
         self::assertNull(static::getPlaywrightClient()->getProfile(), 'expected profiling to apply to one request only');
     }
 
+    public function testProfileSurvivesAFollowedRedirectChain(): void
+    {
+        static::getPlaywrightClient()->enableProfiler();
+        static::getPlaywrightClient()->visit('/redirect?status=302&hops=2');
+
+        $profile = static::getPlaywrightClient()->getProfile();
+
+        // the hops after the profiled request must not erase its token
+        self::assertInstanceOf(Profile::class, $profile);
+        self::assertSame('/redirect', $profile->getUrl() ? parse_url($profile->getUrl(), \PHP_URL_PATH) : null);
+        self::assertSame(302, $profile->getStatusCode());
+    }
+
     public function testGloballyEnabledProfilerStaysEnabled(): void
     {
         $profiler = self::getContainer()->get('profiler');
