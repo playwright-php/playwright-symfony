@@ -896,6 +896,14 @@ class PlaywrightKernelClient extends AbstractBrowser
 
         $this->profileNextRequest = false;
 
+        // Kernel::handle() boots the kernel, and booting an already booted kernel resets the
+        // services tagged kernel.reset, which puts the profiler back to its configured "collect"
+        // setting. Boot here so that reset happens before the profiler is enabled: otherwise every
+        // request after the first is handled with profiling switched back off.
+        if ($this->kernel instanceof KernelInterface) {
+            $this->kernel->boot();
+        }
+
         if (!$profiler = $this->profiler()) {
             return;
         }

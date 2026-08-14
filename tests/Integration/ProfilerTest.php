@@ -56,6 +56,23 @@ final class ProfilerTest extends PlaywrightTestCase
         self::assertNull(static::getPlaywrightClient()->getProfile(), 'expected profiling to apply to one request only');
     }
 
+    public function testEachRequestCanBeProfiled(): void
+    {
+        static::getPlaywrightClient()->enableProfiler();
+        static::getPlaywrightClient()->visit('/hello');
+        $first = static::getPlaywrightClient()->getProfile();
+
+        static::getPlaywrightClient()->enableProfiler();
+        static::getPlaywrightClient()->visit('/echo');
+        $second = static::getPlaywrightClient()->getProfile();
+
+        // booting the kernel resets the services tagged kernel.reset, the profiler among them, so
+        // enabling it before the request that boots is not enough
+        self::assertInstanceOf(Profile::class, $first);
+        self::assertInstanceOf(Profile::class, $second);
+        self::assertNotSame($first->getToken(), $second->getToken());
+    }
+
     public function testProfileSurvivesAFollowedRedirectChain(): void
     {
         static::getPlaywrightClient()->enableProfiler();
