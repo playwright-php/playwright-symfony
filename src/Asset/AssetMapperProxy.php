@@ -233,6 +233,12 @@ final class AssetMapperProxy implements AssetLocatorInterface
     private function resolveMimeType(?string $extension): string
     {
         if ($extension) {
+            $extension = strtolower($extension);
+
+            if (in_array($extension, ['ts', 'mts', 'cts', 'tsx'], true)) {
+                return 'text/javascript';
+            }
+
             if (null !== $this->mime) {
                 $types = $this->mime->getMimeTypes($extension);
                 if (!empty($types)) {
@@ -254,7 +260,6 @@ final class AssetMapperProxy implements AssetLocatorInterface
                 'txt' => 'text/plain; charset=UTF-8',
             ];
 
-            $extension = strtolower($extension);
             if (isset($fallback[$extension])) {
                 return $fallback[$extension];
             }

@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Asset;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Symfony\Asset\AssetMapperProxy;
@@ -208,6 +209,42 @@ final class AssetMapperProxyTest extends TestCase
         $proxy = new AssetMapperProxy($mapper);
         $result = $proxy->locate('/style.css');
         $this->assertSame('text/css', $result->getContentType());
+    }
+
+    #[DataProvider('typeScriptExtensions')]
+    public function testTypeScriptAssetsUseJavaScriptContentType(string $extension): void
+    {
+        $asset = (object) [
+            'publicPath' => "/controller.$extension",
+            'sourcePath' => "/assets/controller.$extension",
+            'content' => 'export default {};',
+        ];
+        $mapper = new class($asset) {
+            public function __construct(private $asset)
+            {
+            }
+
+            public function getAssetFromPublicPath($path)
+            {
+                return $this->asset;
+            }
+        };
+
+        $proxy = new AssetMapperProxy($mapper);
+        $result = $proxy->locate("/controller.$extension");
+
+        $this->assertNotNull($result);
+        $this->assertSame('text/javascript', $result->getContentType());
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function typeScriptExtensions(): iterable
+    {
+        foreach (['ts', 'mts', 'cts', 'tsx'] as $extension) {
+            yield $extension => [$extension];
+        }
     }
 
     public function testOctetStreamForUnknownExtension(): void
