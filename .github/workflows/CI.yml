@@ -92,6 +92,8 @@ jobs:
         uses: playwright-php/setup-playwright@v1
         with:
           browsers: chromium
+          # `ubuntu-latest` ships every library chromium needs; `--with-deps` would only add fonts these tests never render.
+          with-deps: false
 
       - name: "Composer: install"
         run: composer install --prefer-dist --no-interaction --no-progress
