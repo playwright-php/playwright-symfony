@@ -7,6 +7,8 @@ Before 1.0, breaking changes are released in minor versions.
 
 ## [Unreleased]
 
+## v1.10.0 
+
 ### Added
 
 - `catchExceptions()` on the kernel client, so a test can let an application exception propagate instead of being converted to a response (#47).
