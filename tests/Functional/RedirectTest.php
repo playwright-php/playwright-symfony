@@ -136,6 +136,60 @@ final class RedirectTest extends PlaywrightTestCase
     /**
      * @return iterable<string, array{int}>
      */
+    public function testRedirectIsNotFollowedWhenTheClientIsToldNotTo(): void
+    {
+        static::getPlaywrightClient()->followRedirects(false);
+
+        $page = $this->visit('/redirect?status=302');
+
+        // the browser stops on the url that redirected, with nothing rendered
+        self::assertSame($this->getBaseUrl().'/redirect?status=302', $page->url());
+
+        $response = $this->getLastResponse();
+
+        self::assertNotNull($response);
+        self::assertSame(302, $response->getStatusCode());
+        self::assertSame('/hello', $response->headers->get('location'));
+    }
+
+    public function testStoppedRedirectCanBeFollowedOneHopAtATime(): void
+    {
+        static::getPlaywrightClient()->followRedirects(false);
+
+        $this->visit('/redirect?status=302&hops=1');
+        static::getPlaywrightClient()->followRedirect();
+
+        self::assertSame(302, $this->getLastResponse()?->getStatusCode());
+        self::assertSame($this->getBaseUrl().'/redirect?status=302&hops=0&target=%2Fhello', $this->getPage()->url());
+
+        static::getPlaywrightClient()->followRedirect();
+
+        self::assertSame(200, $this->getLastResponse()?->getStatusCode());
+        self::assertSame($this->getBaseUrl().'/hello', $this->getPage()->url());
+        $this->assertPageContains('hello from app');
+    }
+
+    public function testFollowRedirectFailsWhenTheBrowserWasNotStopped(): void
+    {
+        $this->visit('/hello');
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('The last request was not a redirect the browser was stopped on.');
+
+        static::getPlaywrightClient()->followRedirect();
+    }
+
+    public function testRedirectsAreFollowedAgainOnceReEnabled(): void
+    {
+        static::getPlaywrightClient()->followRedirects(false);
+        $this->visit('/redirect?status=302');
+
+        static::getPlaywrightClient()->followRedirects(true);
+        $page = $this->visit('/redirect?status=302');
+
+        self::assertSame($this->getBaseUrl().'/hello', $page->url());
+    }
+
     public static function redirectStatuses(): iterable
     {
         foreach ([301, 302, 303, 307, 308] as $status) {

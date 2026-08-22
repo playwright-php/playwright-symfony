@@ -168,6 +168,7 @@ class PlaywrightKernelClient extends AbstractBrowser
     private ?bool $profilerWasEnabled = null;
     private bool $catchExceptions = true;
     private readonly BrowserSessionInterface $session;
+    private ?string $pendingRedirect = null;
 
     /**
      * Creates a client that routes browser requests through a Symfony kernel.
@@ -235,6 +236,27 @@ class PlaywrightKernelClient extends AbstractBrowser
         }
 
         return $page;
+    }
+
+    /**
+     * Navigates to the target of the redirect the browser was stopped on.
+     */
+    public function followRedirect(): Crawler
+    {
+        if (null === $target = $this->pendingRedirect) {
+            throw new \LogicException('The last request was not a redirect the browser was stopped on.');
+        }
+
+        $this->pendingRedirect = null;
+        $page = $this->session->getPage();
+
+        if (null === $page) {
+            throw new \RuntimeException('No page available. Browser may not be started.');
+        }
+
+        $page->goto($target);
+
+        return $this->getCrawler();
     }
 
     /**
@@ -739,15 +761,37 @@ class PlaywrightKernelClient extends AbstractBrowser
             $response = $this->handleInternalRequest($request);
             $location = $response->headers->get('location');
             $statusCode = $response->getStatusCode();
-            if (
-                'document' === $request->resourceType()
+            $isRedirectNavigation = 'document' === $request->resourceType()
                 && (
                     in_array($statusCode, [301, 302, 303], true)
                     || ('GET' === $request->method() && in_array($statusCode, [307, 308], true))
                 )
                 && null !== $location
-                && '' !== $location
-            ) {
+                && '' !== $location;
+
+            if ('document' === $request->resourceType()) {
+                $this->pendingRedirect = null;
+            }
+
+            if ($isRedirectNavigation && !$this->isFollowingRedirects()) {
+                // stop the browser on the url that redirected, as BrowserKit does. the status and
+                // Location stay on getLastSymfonyResponse() for the caller to inspect, and the body
+                // has to go: a RedirectResponse carries a meta refresh that navigates whatever the
+                // status says
+                $this->pendingRedirect = UriResolver::resolve($location, $request->url());
+
+                if (method_exists($route, 'fulfill')) {
+                    $route->fulfill([
+                        'status' => 200,
+                        'headers' => $this->fulfillHeadersWithoutLocation($response),
+                        'body' => '',
+                    ]);
+                }
+
+                return;
+            }
+
+            if ($isRedirectNavigation) {
                 // Route::redirectNavigationRequest() is @internal in playwright-php/playwright.
                 // Depending on it is deliberate, so its absence must fail loudly: falling back to
                 // a plain fulfill() would leave the page on the 3xx with no error of any kind.
@@ -755,13 +799,10 @@ class PlaywrightKernelClient extends AbstractBrowser
                     throw new \RuntimeException(sprintf('Cannot follow the %d redirect to "%s": %s::redirectNavigationRequest() is missing. Upgrade playwright-php/playwright to 1.4.0 or later.', $statusCode, $location, get_debug_type($route)));
                 }
 
-                $fulfillOptions = $this->responseConverter->prepareFulfillOptions($response);
-                $headers = is_array($fulfillOptions['headers'] ?? null) ? $fulfillOptions['headers'] : [];
-                unset($headers['location'], $headers['Location']);
                 $this->continuingRedirect = true;
                 $route->redirectNavigationRequest(
                     UriResolver::resolve($location, $request->url()),
-                    ['headers' => $headers],
+                    ['headers' => $this->fulfillHeadersWithoutLocation($response)],
                 );
 
                 return;
@@ -774,9 +815,7 @@ class PlaywrightKernelClient extends AbstractBrowser
                 && '' !== $location
                 && method_exists($route, 'fulfill')
             ) {
-                $fulfillOptions = $this->responseConverter->prepareFulfillOptions($response);
-                $headers = is_array($fulfillOptions['headers'] ?? null) ? $fulfillOptions['headers'] : [];
-                unset($headers['location'], $headers['Location']);
+                $headers = $this->fulfillHeadersWithoutLocation($response);
                 $headers['X-Playwright-PHP-Redirect'] = UriResolver::resolve($location, $request->url());
                 $headers['X-Playwright-PHP-Redirect-Status'] = (string) $statusCode;
 
@@ -801,6 +840,18 @@ class PlaywrightKernelClient extends AbstractBrowser
     private function shouldInterceptRequest(array|false $url): bool
     {
         return is_array($url) && isset($url['host']) && in_array($url['host'], $this->interceptedHosts, true);
+    }
+
+    /**
+     * @return array<mixed, mixed>
+     */
+    private function fulfillHeadersWithoutLocation(SymfonyResponse $response): array
+    {
+        $fulfillOptions = $this->responseConverter->prepareFulfillOptions($response);
+        $headers = is_array($fulfillOptions['headers'] ?? null) ? $fulfillOptions['headers'] : [];
+        unset($headers['location'], $headers['Location']);
+
+        return $headers;
     }
 
     private function handleInternalRequest(RequestInterface $playwrightRequest): SymfonyResponse

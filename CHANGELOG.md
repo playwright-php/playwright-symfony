@@ -9,6 +9,7 @@ Before 1.0, breaking changes are released in minor versions.
 
 ### Added
 
+- `followRedirects(false)` now stops the browser on a redirect response instead of following it, leaving the status and `Location` on `getLastSymfonyResponse()`. `followRedirect()` follows a stopped redirect one hop at a time.
 - Add `PlaywrightTestCase::loginUser()` with the same signature and firewall token semantics as Symfony's `KernelBrowser::loginUser()`.
 - Make Symfony's `WebTestCase` response, route, session, and DomCrawler assertions available to Playwright tests.
 
