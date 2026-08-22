@@ -163,6 +163,7 @@ class PlaywrightKernelClient extends AbstractBrowser
     private bool $interceptorSetUp = false;
     private ?AssetServer $assetServer;
     private ?string $lastProfileToken = null;
+    private bool $continuingRedirect = false;
     private bool $profileNextRequest = false;
     private ?bool $profilerWasEnabled = null;
     private bool $catchExceptions = true;
@@ -757,6 +758,7 @@ class PlaywrightKernelClient extends AbstractBrowser
                 $fulfillOptions = $this->responseConverter->prepareFulfillOptions($response);
                 $headers = is_array($fulfillOptions['headers'] ?? null) ? $fulfillOptions['headers'] : [];
                 unset($headers['location'], $headers['Location']);
+                $this->continuingRedirect = true;
                 $route->redirectNavigationRequest(
                     UriResolver::resolve($location, $request->url()),
                     ['headers' => $headers],
@@ -825,8 +827,18 @@ class PlaywrightKernelClient extends AbstractBrowser
             // only after terminate: that is where the profile is written to storage
             $this->stopProfiling();
 
-            // always reassign: a request that was not profiled must not report the previous profile
-            $this->lastProfileToken = $response->headers->get('X-Debug-Token');
+            $token = $response->headers->get('X-Debug-Token');
+            $continuingRedirect = $this->continuingRedirect;
+            $this->continuingRedirect = false;
+
+            // a request that was not profiled must not report the previous profile, but only a
+            // fresh navigation replaces it: the hops of a redirect and the subresources of a page
+            // belong to the navigation that was profiled, and would otherwise erase its token
+            if (null !== $token) {
+                $this->lastProfileToken = $token;
+            } elseif ('document' === $playwrightRequest->resourceType() && !$continuingRedirect) {
+                $this->lastProfileToken = null;
+            }
 
             // Only clean the buffer if we started it
             while (ob_get_level() > $bufferLevel) {
@@ -883,6 +895,14 @@ class PlaywrightKernelClient extends AbstractBrowser
         }
 
         $this->profileNextRequest = false;
+
+        // Kernel::handle() boots the kernel, and booting an already booted kernel resets the
+        // services tagged kernel.reset, which puts the profiler back to its configured "collect"
+        // setting. Boot here so that reset happens before the profiler is enabled: otherwise every
+        // request after the first is handled with profiling switched back off.
+        if ($this->kernel instanceof KernelInterface) {
+            $this->kernel->boot();
+        }
 
         if (!$profiler = $this->profiler()) {
             return;
