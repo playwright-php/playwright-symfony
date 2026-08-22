@@ -7,7 +7,7 @@ Before 1.0, breaking changes are released in minor versions.
 
 ## [Unreleased]
 
-## v1.10.0 
+## v0.10.0 
 
 ### Added
 
