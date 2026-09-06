@@ -363,4 +363,16 @@ class RequestConverterTest extends TestCase
 
         self::assertSame('127.0.0.1', $symfony->getClientIp());
     }
+
+    public function testPopulatesQueryString(): void
+    {
+        $converter = new RequestConverter();
+        $request = new MockRequest(url: 'https://example.test/list?page=2&sort=name', method: 'GET');
+
+        $symfony = $converter->convertToSymfonyRequest($request);
+
+        self::assertSame('page=2&sort=name', $symfony->getQueryString());
+        self::assertSame('https://example.test/list?page=2&sort=name', $symfony->getUri());
+        self::assertSame('2', $symfony->query->get('page'));
+    }
 }

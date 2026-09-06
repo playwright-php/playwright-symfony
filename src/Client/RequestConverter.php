@@ -45,6 +45,7 @@ class RequestConverter
             'REMOTE_ADDR' => '127.0.0.1',
             'REQUEST_METHOD' => $method,
             'REQUEST_URI' => ($url['path'] ?? '/').(isset($url['query']) ? '?'.$url['query'] : ''),
+            'QUERY_STRING' => $url['query'] ?? '',
             'SERVER_NAME' => $url['host'] ?? 'localhost',
             'SERVER_PORT' => $url['port'] ?? 80,
             'HTTP_HOST' => $url['host'] ?? 'localhost',
