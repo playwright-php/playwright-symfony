@@ -7,6 +7,16 @@ Before 1.0, breaking changes are released in minor versions.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-20
+
+### Changed
+
+- Require Playwright PHP 1.5 or newer so intercepted binary assets are fulfilled correctly.
+
+### Fixed
+
+- Preserve query strings when converting browser requests into Symfony requests (#56).
+
 ## v0.10.0 
 
 ### Added
