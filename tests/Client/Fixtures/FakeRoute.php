@@ -19,6 +19,7 @@ use Playwright\Network\RequestInterface;
 class FakeRoute
 {
     public bool $continued = false;
+    public bool $fellBack = false;
     public bool $fulfilled = false;
     public ?array $fulfilledOptions = null;
     public ?string $redirectUrl = null;
@@ -36,6 +37,11 @@ class FakeRoute
     public function continue(): void
     {
         $this->continued = true;
+    }
+
+    public function fallback(): void
+    {
+        $this->fellBack = true;
     }
 
     public function fulfill(array $options): void
