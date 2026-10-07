@@ -207,6 +207,15 @@ class BrowserRegistry implements BrowserSessionInterface
             ?? $_ENV['PW_CHANNEL'] ?? $_SERVER['PW_CHANNEL'] ?? getenv('PW_CHANNEL');
         $launchOptions = is_string($channel) && '' !== $channel ? ['channel' => $channel] : [];
 
+        $wsEndpoint = $_ENV['PLAYWRIGHT_WS_ENDPOINT'] ?? $_SERVER['PLAYWRIGHT_WS_ENDPOINT'] ?? getenv('PLAYWRIGHT_WS_ENDPOINT');
+        if (!is_string($wsEndpoint) || '' === trim($wsEndpoint)) {
+            $wsEndpoint = $_ENV['PW_WS_ENDPOINT'] ?? $_SERVER['PW_WS_ENDPOINT'] ?? getenv('PW_WS_ENDPOINT');
+        }
+
+        if (is_string($wsEndpoint) && '' !== trim($wsEndpoint)) {
+            $launchOptions['wsEndpoint'] = $wsEndpoint;
+        }
+
         return new self($browserType, $headless, $launchOptions);
     }
 
@@ -241,6 +250,12 @@ class BrowserRegistry implements BrowserSessionInterface
 
         if (is_array($args) && [] !== $args) {
             $builder->withArgs(array_values(array_filter($args, 'is_string')));
+        }
+
+        // Jetzt mit konfiguriertem Builder verbinden:
+        $wsEndpoint = $this->launchOptions['wsEndpoint'] ?? null;
+        if (is_string($wsEndpoint) && '' !== trim($wsEndpoint)) {
+            return $builder->connect($wsEndpoint);
         }
 
         return $builder->launch();
