@@ -294,7 +294,7 @@ class RequestConverterTest extends TestCase
         $symfony = $converter->convertToSymfonyRequest($request);
 
         self::assertSame('example.com', $symfony->server->get('SERVER_NAME'));
-        self::assertSame('example.com', $symfony->server->get('HTTP_HOST'));
+        self::assertSame('example.com:8443', $symfony->server->get('HTTP_HOST'));
         self::assertSame(8443, $symfony->server->get('SERVER_PORT'));
         self::assertSame('on', $symfony->server->get('HTTPS'));
         self::assertSame('/path/to/resource?key=value', $symfony->server->get('REQUEST_URI'));
