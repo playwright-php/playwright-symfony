@@ -839,7 +839,22 @@ class PlaywrightKernelClient extends AbstractBrowser
      */
     private function shouldInterceptRequest(array|false $url): bool
     {
-        return is_array($url) && isset($url['host']) && in_array($url['host'], $this->interceptedHosts, true);
+        if (!is_array($url) || !isset($url['host'])) {
+            return false;
+        }
+
+        $host = $url['host'];
+        if (!is_string($host) || '' === $host) {
+            return false;
+        }
+
+        $hostWithPort = $host;
+        $port = $url['port'] ?? null;
+        if (is_int($port) && $port > 0) {
+            $hostWithPort .= ':'.$port;
+        }
+
+        return in_array($host, $this->interceptedHosts, true) || in_array($hostWithPort, $this->interceptedHosts, true);
     }
 
     /**
