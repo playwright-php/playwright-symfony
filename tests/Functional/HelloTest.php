@@ -33,4 +33,21 @@ final class HelloTest extends PlaywrightTestCase
         $this->visit('/hello');
         $this->assertPageContains('hello from app');
     }
+
+    public function testRequestRetainsNonStandardPort(): void
+    {
+        $client = static::getPlaywrightClient();
+        $client->setInterceptedHosts(['localhost:82']);
+        $page = $client->getPage();
+
+        self::assertNotNull($page);
+
+        $page->goto('http://localhost:82/hello');
+
+        $this->assertPageContains('hello from app');
+        $request = $this->getLastRequest();
+
+        self::assertNotNull($request);
+        self::assertSame('http://localhost:82', $request->getSchemeAndHttpHost());
+    }
 }

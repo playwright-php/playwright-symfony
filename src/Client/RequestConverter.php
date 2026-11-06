@@ -48,7 +48,7 @@ class RequestConverter
             'QUERY_STRING' => $url['query'] ?? '',
             'SERVER_NAME' => $url['host'] ?? 'localhost',
             'SERVER_PORT' => $url['port'] ?? 80,
-            'HTTP_HOST' => $url['host'] ?? 'localhost',
+            'HTTP_HOST' => isset($url['port']) ? ($url['host'] ?? 'localhost').':'.$url['port'] : ($url['host'] ?? 'localhost'),
             'HTTPS' => ($url['scheme'] ?? 'http') === 'https' ? 'on' : 'off',
         ];
 

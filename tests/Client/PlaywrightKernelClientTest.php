@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Client;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Symfony\Client\BrowserRegistry;
@@ -367,6 +368,41 @@ class PlaywrightKernelClientTest extends TestCase
         self::assertTrue($route->fellBack);
         self::assertFalse($route->continued);
         self::assertFalse($route->fulfilled);
+    }
+
+    #[DataProvider('interceptedHostPorts')]
+    public function testInterceptedHostsRespectConfiguredPorts(string $host, string $url, bool $intercepted): void
+    {
+        new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse('from the kernel');
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+            interceptedHosts: [$host],
+        );
+
+        $route = $this->page->triggerRequest(new MockRequest(url: $url));
+
+        self::assertSame($intercepted, $route->fulfilled);
+        self::assertSame(!$intercepted, $route->fellBack);
+    }
+
+    /**
+     * @return iterable<string, array{string, string, bool}>
+     */
+    public static function interceptedHostPorts(): iterable
+    {
+        yield 'host accepts any port' => ['localhost', 'http://localhost:82/hello', true];
+        yield 'host and port match' => ['localhost:82', 'http://localhost:82/hello', true];
+        yield 'another port falls back' => ['localhost:82', 'http://localhost:83/hello', false];
+        yield 'missing port falls back' => ['localhost:82', 'http://localhost/hello', false];
+        yield 'another host falls back' => ['localhost:82', 'http://example.com:82/hello', false];
+        yield 'IPv6 host and port match' => ['[::1]:82', 'http://[::1]:82/hello', true];
     }
 
     public function testAssetRequestServedByAssetServer(): void

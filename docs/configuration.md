@@ -40,6 +40,8 @@ in `config/bundles.php` while deactivating it for a specific environment.
 List of hostnames that the browser should intercept and route into the Symfony Kernel. Any request to a host *not* in
 this list will be handled as a standard external request by the browser.
 
+A hostname such as `localhost` matches every port. Use an entry such as `localhost:82` to intercept only that port.
+
 ### `base_url`
 
 **Type**: `string` | **Default**: `%env(default::PLAYWRIGHT_BASE_URL)%`
