@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Client;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Playwright\Symfony\Client\RequestConverter;
 use Playwright\Symfony\Tests\Fixtures\MockRequest;
@@ -298,6 +299,27 @@ class RequestConverterTest extends TestCase
         self::assertSame(8443, $symfony->server->get('SERVER_PORT'));
         self::assertSame('on', $symfony->server->get('HTTPS'));
         self::assertSame('/path/to/resource?key=value', $symfony->server->get('REQUEST_URI'));
+    }
+
+    #[DataProvider('requestPorts')]
+    public function testPreservesPortsInGeneratedRequestUrls(string $url, string $host, int $port): void
+    {
+        $converter = new RequestConverter();
+        $request = $converter->convertToSymfonyRequest(new MockRequest(url: $url.'/hello'));
+
+        self::assertSame($host, $request->headers->get('host'));
+        self::assertSame($port, $request->getPort());
+        self::assertSame($url, $request->getSchemeAndHttpHost());
+    }
+
+    /**
+     * @return iterable<string, array{string, string, int}>
+     */
+    public static function requestPorts(): iterable
+    {
+        yield 'HTTP' => ['http://localhost:82', 'localhost:82', 82];
+        yield 'HTTPS' => ['https://example.com:8443', 'example.com:8443', 8443];
+        yield 'IPv6' => ['http://[::1]:8080', '[::1]:8080', 8080];
     }
 
     public function testHandlesHttpScheme(): void

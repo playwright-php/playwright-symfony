@@ -844,12 +844,14 @@ class PlaywrightKernelClient extends AbstractBrowser
         }
 
         $host = $url['host'];
+
         if (!is_string($host) || '' === $host) {
             return false;
         }
 
         $hostWithPort = $host;
         $port = $url['port'] ?? null;
+
         if (is_int($port) && $port > 0) {
             $hostWithPort .= ':'.$port;
         }
