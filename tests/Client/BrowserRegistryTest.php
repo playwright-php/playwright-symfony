@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Client;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Browser\BrowserContextInterface;
@@ -29,19 +30,22 @@ use Playwright\Symfony\Tests\Fixtures\Browser\DummyPage;
 #[UsesClass(BrowserSession::class)]
 class BrowserRegistryTest extends TestCase
 {
-    private ?string $originalBrowser;
+    /** @var array<string, array{string|false, mixed, mixed}> */
+    private array $originalEnvironment = [];
 
     protected function setUp(): void
     {
-        $this->originalBrowser = getenv('PLAYWRIGHT_BROWSER') ?: null;
+        foreach (['PLAYWRIGHT_BROWSER', 'PLAYWRIGHT_HEADLESS', 'PLAYWRIGHT_CHANNEL', 'PW_CHANNEL'] as $name) {
+            $this->originalEnvironment[$name] = [getenv($name), $_ENV[$name] ?? null, $_SERVER[$name] ?? null];
+            putenv($name);
+            unset($_ENV[$name], $_SERVER[$name]);
+        }
     }
 
     protected function tearDown(): void
     {
-        if (null === $this->originalBrowser) {
-            putenv('PLAYWRIGHT_BROWSER');
-        } else {
-            putenv('PLAYWRIGHT_BROWSER='.$this->originalBrowser);
+        foreach ($this->originalEnvironment as $name => $values) {
+            $this->restoreEnvironmentVariable($name, $values);
         }
     }
 
@@ -73,6 +77,63 @@ class BrowserRegistryTest extends TestCase
 
         $this->assertSame('webkit', $browser->getBrowserType());
         $this->assertTrue($browser->isHeadless());
+    }
+
+    #[DataProvider('channelEnvironmentSources')]
+    public function testFromEnvironmentRespectsChannel(string $name, string $source): void
+    {
+        match ($source) {
+            'env' => $_ENV[$name] = 'chrome',
+            'server' => $_SERVER[$name] = 'chrome',
+            'process' => putenv($name.'=chrome'),
+        };
+
+        $browser = BrowserRegistry::fromEnvironment();
+
+        $this->assertTrue($browser->equals(new BrowserRegistry(launchOptions: ['channel' => 'chrome'])));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function channelEnvironmentSources(): iterable
+    {
+        yield 'PLAYWRIGHT_CHANNEL in ENV' => ['PLAYWRIGHT_CHANNEL', 'env'];
+        yield 'PLAYWRIGHT_CHANNEL in SERVER' => ['PLAYWRIGHT_CHANNEL', 'server'];
+        yield 'PLAYWRIGHT_CHANNEL in process' => ['PLAYWRIGHT_CHANNEL', 'process'];
+        yield 'PW_CHANNEL in ENV' => ['PW_CHANNEL', 'env'];
+        yield 'PW_CHANNEL in SERVER' => ['PW_CHANNEL', 'server'];
+        yield 'PW_CHANNEL in process' => ['PW_CHANNEL', 'process'];
+    }
+
+    public function testPlaywrightChannelTakesPrecedenceOverLibraryChannel(): void
+    {
+        putenv('PLAYWRIGHT_CHANNEL=chrome');
+        $_ENV['PW_CHANNEL'] = 'msedge';
+
+        $browser = BrowserRegistry::fromEnvironment();
+
+        $this->assertTrue($browser->equals(new BrowserRegistry(launchOptions: ['channel' => 'chrome'])));
+    }
+
+    public function testFromEnvironmentIgnoresEmptyChannel(): void
+    {
+        $_ENV['PLAYWRIGHT_CHANNEL'] = '';
+
+        $browser = BrowserRegistry::fromEnvironment();
+
+        $this->assertTrue($browser->equals(new BrowserRegistry()));
+    }
+
+    public function testChannelChangesMakeBrowserConfigurationsDifferent(): void
+    {
+        putenv('PW_CHANNEL=chrome');
+        $first = BrowserRegistry::fromEnvironment();
+
+        putenv('PW_CHANNEL=msedge');
+        $second = BrowserRegistry::fromEnvironment();
+
+        $this->assertFalse($first->equals($second));
     }
 
     public function testGetPageReturnsExistingPageWithoutStarting(): void
@@ -319,5 +380,23 @@ class BrowserRegistryTest extends TestCase
         $browser2 = new BrowserRegistry('chromium', true, ['option2' => 'value2']);
 
         $this->assertFalse($browser1->equals($browser2));
+    }
+
+    /**
+     * @param array{string|false, mixed, mixed} $values
+     */
+    private function restoreEnvironmentVariable(string $name, array $values): void
+    {
+        [$process, $environment, $server] = $values;
+        putenv(false === $process ? $name : $name.'='.$process);
+        unset($_ENV[$name], $_SERVER[$name]);
+
+        if (null !== $environment) {
+            $_ENV[$name] = $environment;
+        }
+
+        if (null !== $server) {
+            $_SERVER[$name] = $server;
+        }
     }
 }
