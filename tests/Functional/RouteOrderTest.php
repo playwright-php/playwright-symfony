@@ -77,6 +77,7 @@ final class RouteOrderTest extends PlaywrightTestCase
         $this->getPlaywrightClient()->context()?->route('**/*', static function (RouteInterface $route) use (&$hosts): void {
             $host = parse_url($route->request()->url(), \PHP_URL_HOST);
             $hosts[] = $host;
+
             if ('outside.test' !== $host) {
                 $route->abort();
 

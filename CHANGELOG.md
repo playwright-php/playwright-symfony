@@ -9,7 +9,7 @@ Before 1.0, breaking changes are released in minor versions.
 
 ### Changed
 
-- **BC break:** the kernel route is registered when the client is created, so every route a test adds on the page now runs before it, including routes added before the first visit. A test route must call `$route->fallback()`, not `$route->continue()`, to hand a request to the kernel: `continue()` sends it to the network. This requires the Playwright PHP release that chains route handlers.
+- **BC break:** the kernel route is registered when the client is created, so every route a test adds on the page now runs before it, including routes added before the first visit. A test route must call `$route->fallback()`, not `$route->continue()`, to hand a request to the kernel: `continue()` sends it to the network. This requires Playwright PHP 1.5.1 or newer.
 - Requests to hosts the kernel does not intercept are handed on with `fallback()` instead of `continue()`, and the debug log message for them is now `Falling back for external request` instead of `Continuing external request`.
 
 ### Fixed
