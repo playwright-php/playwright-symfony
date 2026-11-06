@@ -160,7 +160,6 @@ class PlaywrightKernelClient extends AbstractBrowser
     /** @var string[] */
     private array $interceptedHosts = ['localhost', '127.0.0.1', 'testapp.local'];
     private ?object $hookReceiver = null;
-    private bool $interceptorSetUp = false;
     private ?AssetServer $assetServer;
     private ?string $lastProfileToken = null;
     private bool $continuingRedirect = false;
@@ -201,6 +200,9 @@ class PlaywrightKernelClient extends AbstractBrowser
         $this->assetServer = $assetServer;
         $this->logger = $logger ?? new NullLogger();
 
+        // registered before any route a test adds, so those run first and can fall back to the kernel
+        $this->setupRequestInterception();
+
         if ($context = $this->session->getContext()) {
             $context->addInitScript(self::FETCH_REDIRECT_SCRIPT);
             CookieJarSync::fromContext($this->getCookieJar(), $context);
@@ -220,7 +222,6 @@ class PlaywrightKernelClient extends AbstractBrowser
      */
     public function visit(string $path): PageInterface
     {
-        $this->ensureInterceptorSetUp();
         $url = $this->getBaseUrl().$path;
         $this->log('debug', 'Navigating with Playwright', ['url' => $url]);
         $page = $this->session->getPage();
@@ -282,7 +283,6 @@ class PlaywrightKernelClient extends AbstractBrowser
      */
     public function click(Link $link, array $serverParameters = []): Crawler
     {
-        $this->ensureInterceptorSetUp();
         $xpath = XPathHelper::buildXPath($link->getNode());
         $page = $this->getPage();
         if (null === $page) {
@@ -302,7 +302,6 @@ class PlaywrightKernelClient extends AbstractBrowser
      */
     public function submit(Form $form, array $values = [], array $serverParameters = []): Crawler
     {
-        $this->ensureInterceptorSetUp();
         if (!empty($values)) {
             $form->setValues($values);
         }
@@ -724,12 +723,13 @@ class PlaywrightKernelClient extends AbstractBrowser
             $url = parse_url($request->url());
 
             if (!$this->shouldInterceptRequest($url)) {
-                $this->log('debug', 'Continuing external request', [
+                $this->log('debug', 'Falling back for external request', [
                     'url' => $request->url(),
                     'method' => $request->method(),
                 ]);
-                if (method_exists($route, 'continue')) {
-                    $route->continue();
+                // not continue(): that would skip context routes on its way to the network
+                if (method_exists($route, 'fallback')) {
+                    $route->fallback();
                 }
 
                 return;
@@ -992,14 +992,6 @@ class PlaywrightKernelClient extends AbstractBrowser
         $profiler = $container->get('profiler');
 
         return $profiler instanceof Profiler ? $profiler : null;
-    }
-
-    private function ensureInterceptorSetUp(): void
-    {
-        if (!$this->interceptorSetUp) {
-            $this->setupRequestInterception();
-            $this->interceptorSetUp = true;
-        }
     }
 
     /**

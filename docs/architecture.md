@@ -48,6 +48,13 @@ When you call `$this->visit('/dashboard')`:
 5. **Fulfillment**: The browser receives the response and renders the DOM.
 6. **DomCrawler Sync**: The client builds a fresh `Crawler` from the browser's live `page->content()`.
 
+The kernel route is the oldest route on the page, registered when the client is created. Playwright runs the newest
+route first, so a route a test adds on the page runs before it and hands a request to it with `$route->fallback()`;
+context routes only see what the page routes fall back on, which the kernel route does for hosts it does not intercept.
+
+A client is bound to the page it was created with: when `BrowserRegistry::restartContext()` or `resetSessions()` closes
+that page, create a new client.
+
 ## Service Container Integration
 
 The bundle optimizes the DI container for testing:

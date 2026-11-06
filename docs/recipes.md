@@ -35,7 +35,7 @@ public function testWithMockedExternalApi(): void
             return;
         }
         
-        $route->continue();
+        $route->fallback();
     });
 
     $this->visit('/dashboard'); // Dashboard calls the external API
