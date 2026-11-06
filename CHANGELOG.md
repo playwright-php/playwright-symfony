@@ -7,16 +7,19 @@ Before 1.0, breaking changes are released in minor versions.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-06
+
 ### Changed
 
-- **BC break:** the kernel route is registered when the client is created, so every route a test adds on the page now runs before it, including routes added before the first visit. A test route must call `$route->fallback()`, not `$route->continue()`, to hand a request to the kernel: `continue()` sends it to the network. This requires Playwright PHP 1.5.1 or newer.
-- Requests to hosts the kernel does not intercept are handed on with `fallback()` instead of `continue()`, and the debug log message for them is now `Falling back for external request` instead of `Continuing external request`.
+- Require Playwright PHP 1.5.1 or newer.
+- **BC break:** register the kernel route when the client is created, so test routes run first, including before the first visit. Test routes must call `$route->fallback()` to reach the kernel; `$route->continue()` sends the request to the network (#59).
+- External requests now use `fallback()` so context routes can handle them. Their debug log message is now `Falling back for external request` (#59).
 
 ### Fixed
 
-- Honor the Chromium channel in `BrowserRegistry` launch options and the `PLAYWRIGHT_CHANNEL` or `PW_CHANNEL` environment settings (#62).
-- Preserve explicit ports in intercepted request hosts and match `intercepted_hosts` entries containing a port (#60).
-- A route a test added on the page before the first visit never saw requests the kernel serves, and requests to hosts the kernel does not intercept went to the network without reaching context routes.
+- Honor Chromium channels in `BrowserRegistry` launch options and the `PLAYWRIGHT_CHANNEL` or `PW_CHANNEL` environment settings (#63).
+- Preserve ports in `HTTP_HOST` and match `intercepted_hosts` entries containing a port (#60).
+- Allow test routes registered before the first visit to override the kernel response (#59).
 
 ## [0.11.0] - 2026-09-20
 
