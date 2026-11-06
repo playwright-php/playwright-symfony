@@ -115,4 +115,5 @@ Configuration can be overridden at runtime using environment variables:
 
 - `PLAYWRIGHT_BROWSER`: `chromium`, `firefox`, or `webkit`.
 - `PLAYWRIGHT_HEADLESS`: `true` or `false`.
+- `PLAYWRIGHT_CHANNEL`: Chromium channel, such as `chrome` or `msedge`, for `PlaywrightTestCase` and `BrowserRegistry::fromEnvironment()`. Falls back to `PW_CHANNEL` when unset. The selected browser must be installed separately.
 - `PLAYWRIGHT_BASE_URL`: Override the default base URL.

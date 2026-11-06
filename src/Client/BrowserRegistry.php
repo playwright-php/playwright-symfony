@@ -191,7 +191,7 @@ class BrowserRegistry implements BrowserSessionInterface
     }
 
     /**
-     * Creates a registry from PLAYWRIGHT_BROWSER and PLAYWRIGHT_HEADLESS.
+     * Creates a registry from the browser, headless and channel environment settings.
      */
     public static function fromEnvironment(): self
     {
@@ -203,8 +203,11 @@ class BrowserRegistry implements BrowserSessionInterface
         }
 
         $headless = 'false' !== ($_ENV['PLAYWRIGHT_HEADLESS'] ?? $_SERVER['PLAYWRIGHT_HEADLESS'] ?? getenv('PLAYWRIGHT_HEADLESS'));
+        $channel = $_ENV['PLAYWRIGHT_CHANNEL'] ?? $_SERVER['PLAYWRIGHT_CHANNEL'] ?? (getenv('PLAYWRIGHT_CHANNEL') ?: null)
+            ?? $_ENV['PW_CHANNEL'] ?? $_SERVER['PW_CHANNEL'] ?? getenv('PW_CHANNEL');
+        $launchOptions = is_string($channel) && '' !== $channel ? ['channel' => $channel] : [];
 
-        return new self($browserType, $headless);
+        return new self($browserType, $headless, $launchOptions);
     }
 
     /**
@@ -222,6 +225,11 @@ class BrowserRegistry implements BrowserSessionInterface
         };
 
         $builder->withHeadless($this->headless);
+        $channel = $this->launchOptions['channel'] ?? null;
+
+        if ('chromium' === $this->browserType && is_string($channel) && '' !== $channel) {
+            $builder->withChannel($channel);
+        }
 
         $slowMo = $this->launchOptions['slowMo'] ?? null;
 

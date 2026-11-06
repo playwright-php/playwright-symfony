@@ -16,6 +16,7 @@ namespace Playwright\Symfony\Tests\Integration;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Playwright\Exception\PlaywrightException;
 use Playwright\Symfony\Client\BrowserRegistry;
 
 /**
@@ -24,6 +25,20 @@ use Playwright\Symfony\Client\BrowserRegistry;
 #[CoversClass(BrowserRegistry::class)]
 class BrowserRegistryTest extends TestCase
 {
+    public function testStartPassesConfiguredChannelToPlaywright(): void
+    {
+        $browser = new BrowserRegistry(launchOptions: ['channel' => 'missing-channel-for-regression-test']);
+
+        try {
+            $this->expectException(PlaywrightException::class);
+            $this->expectExceptionMessage('Unsupported chromium channel "missing-channel-for-regression-test"');
+
+            $browser->start();
+        } finally {
+            $browser->stop();
+        }
+    }
+
     public function testStartInitializesContextAndPage(): void
     {
         $browser = new BrowserRegistry('chromium', true);

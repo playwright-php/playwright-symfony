@@ -14,6 +14,7 @@ Before 1.0, breaking changes are released in minor versions.
 
 ### Fixed
 
+- Honor the Chromium channel in `BrowserRegistry` launch options and the `PLAYWRIGHT_CHANNEL` or `PW_CHANNEL` environment settings (#62).
 - Preserve explicit ports in intercepted request hosts and match `intercepted_hosts` entries containing a port (#60).
 - A route a test added on the page before the first visit never saw requests the kernel serves, and requests to hosts the kernel does not intercept went to the network without reaching context routes.
 
