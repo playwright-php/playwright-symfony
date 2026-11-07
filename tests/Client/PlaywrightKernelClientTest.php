@@ -1113,11 +1113,11 @@ class PlaywrightKernelClientTest extends TestCase
             new ResponseConverter(),
         );
 
-        $client->setCookie('test', 'value');
+        $client->setCookie('test', 'root');
+        $client->setCookie('test', 'nested', ['path' => '/custom']);
         $client->clearCookie('test', 'localhost', '/custom');
 
-        // Cookie should be cleared
-        self::assertNull($client->getCookie('test'));
+        self::assertSame(['root'], array_column($this->context->cookies, 'value'));
     }
 
     public function testGetCookieWithCustomUrl(): void

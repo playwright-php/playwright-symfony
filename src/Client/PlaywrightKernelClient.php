@@ -188,11 +188,12 @@ class PlaywrightKernelClient extends AbstractBrowser
         private ?LoggerInterface $logger = null,
         private readonly bool $debugLogging = false,
     ) {
-        $context = $browser->getContext();
-
-        parent::__construct($server, cookieJar: $context ? new CookieJar($context, static fn (): string => parse_url($baseUrl, \PHP_URL_HOST) ?: 'localhost') : null);
-
         $this->session = $browser;
+
+        parent::__construct($server, cookieJar: new CookieJar(
+            $browser->getContext(...),
+            fn (): string => parse_url($this->getPage()?->url() ?? '', \PHP_URL_HOST) ?: parse_url($this->getBaseUrl(), \PHP_URL_HOST) ?: 'localhost',
+        ));
 
         if (null !== $interceptedHosts) {
             $this->interceptedHosts = $interceptedHosts;
@@ -205,7 +206,7 @@ class PlaywrightKernelClient extends AbstractBrowser
         // registered before any route a test adds, so those run first and can fall back to the kernel
         $this->setupRequestInterception();
 
-        $context?->addInitScript(self::FETCH_REDIRECT_SCRIPT);
+        $browser->getContext()?->addInitScript(self::FETCH_REDIRECT_SCRIPT);
     }
 
     /**
@@ -415,7 +416,6 @@ class PlaywrightKernelClient extends AbstractBrowser
      */
     public function clearCookies(): void
     {
-        $this->session->getContext()?->clearCookies();
         $this->getCookieJar()->clear();
     }
 
@@ -424,27 +424,9 @@ class PlaywrightKernelClient extends AbstractBrowser
      */
     public function clearCookie(string $name, ?string $domain = null, string $path = '/'): void
     {
-        // Behavior contract (used by tests): clearCookie removes the cookie.
-        // We use clearCookies() with a filter if possible, or fallback to setting it to empty if API is limited.
-        // Actually, Playwright PHP clearCookies() doesn't take arguments yet in some versions.
+        $domain = $domain ?: (parse_url($this->getBaseUrl(), \PHP_URL_HOST) ?: 'localhost');
 
-        // Better: use addCookies with a very old expiration date to force deletion if the API doesn't support selective clear.
-        // But for our tests, setting it to empty AND returning null in getCookie is usually enough if handled consistently.
-
-        $options = array_filter([
-            'domain' => $domain,
-            'path' => $path,
-        ], static fn ($v) => null !== $v && '' !== $v);
-
-        if (!isset($options['domain'])) {
-            $options['domain'] = parse_url($this->getBaseUrl(), PHP_URL_HOST) ?: 'localhost';
-        }
-
-        // Set expiration to past to delete it
-        $options['expires'] = 0;
-
-        $this->setCookie($name, '', $options);
-        $this->getCookieJar()->expire($name, $path, $domain);
+        $this->getCookieJar()->expire($name, $path ?: '/', $domain);
     }
 
     /**
@@ -699,11 +681,19 @@ class PlaywrightKernelClient extends AbstractBrowser
             return new BrowserKitResponse('No response captured', 500);
         }
 
-        return new BrowserKitResponse(
+        $browserResponse = new BrowserKitResponse(
             $response->getContent() ?: '',
             $response->getStatusCode(),
             $this->responseConverter->formatHeaders($response->headers->all())
         );
+
+        $jar = $this->getCookieJar();
+
+        if ($jar instanceof CookieJar) {
+            $jar->skipResponseCookies($browserResponse);
+        }
+
+        return $browserResponse;
     }
 
     private function setupRequestInterception(): void

@@ -87,22 +87,7 @@ Retrieves a cookie value from the browser context.
 
 #### `clearCookie(string $name, ?string $domain = null, string $path = '/'): void`
 
-Removes a specific cookie from the browser context by setting its expiration to the past.
-
-**Implementation:**
-
-```php
-public function clearCookie(string $name, ?string $domain = null, string $path = '/'): void
-{
-    $options = [
-        'domain' => $domain ?? parse_url($this->getBaseUrl(), PHP_URL_HOST) ?? 'localhost',
-        'path' => $path,
-        'expires' => 0, // Force expiration
-    ];
-
-    $this->setCookie($name, '', $options);
-}
-```
+Removes a cookie at the given domain and path. By default it targets the base URL host and the root path.
 
 #### `clearCookies(): void`
 
@@ -380,11 +365,11 @@ $jar = $client->getCookieJar();
 
 $jar->set(new Cookie('notice', '1', domain: 'localhost'));
 $jar->get('notice');
-$jar->expire('notice'); // removes every domain and path variant of the name
+$jar->expire('notice'); // removes root-path variants across domains
 $jar->clear();
 ```
 
-A cookie set without a domain is scoped to the host being browsed.
+A cookie set without a domain uses the current page's host. Before the first navigation it uses the kernel client's base URL host or the standalone client's BrowserKit host.
 
 ## Best Practices
 
