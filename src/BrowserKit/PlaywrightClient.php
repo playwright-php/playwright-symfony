@@ -111,18 +111,19 @@ final class PlaywrightClient extends AbstractBrowser
         ?History $history = null,
         ?CookieJar $cookieJar = null,
     ) {
-        $jar = new PlaywrightCookieJar($context, static fn (): string => parse_url($page->url(), \PHP_URL_HOST) ?: 'localhost');
+        $this->context = $context;
+        $this->page = $page;
 
-        // a jar handed in was previously seeded from the context and then ignored by the browser;
-        // pushing its cookies in makes them count for real
-        foreach ($cookieJar?->all() ?? [] as $cookie) {
-            $jar->set($cookie);
-        }
+        $jar = new PlaywrightCookieJar(
+            static fn (): BrowserContextInterface => $context,
+            fn (): string => parse_url($this->page->url(), \PHP_URL_HOST) ?: parse_url($this->getAbsoluteUri('/'), \PHP_URL_HOST) ?: 'localhost',
+        );
 
         parent::__construct($server, $history, $jar);
 
-        $this->context = $context;
-        $this->page = $page;
+        foreach ($cookieJar?->all() ?? [] as $cookie) {
+            $jar->set($cookie);
+        }
     }
 
     /**

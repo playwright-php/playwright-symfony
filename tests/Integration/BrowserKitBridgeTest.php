@@ -17,6 +17,7 @@ namespace Playwright\Symfony\Tests\Integration;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use Playwright\Symfony\Test\PlaywrightTestCase;
 use Playwright\Symfony\Tests\Fixtures\App\TestKernel;
+use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
@@ -58,36 +59,30 @@ final class BrowserKitBridgeTest extends PlaywrightTestCase
         $this->assertStringContainsString('Hello BrowserKitUser', $browserKit->getLastSymfonyResponse()->getContent());
     }
 
-    public function testCookieSync(): void
+    public function testCookieJarReadsAndWritesTheLiveContext(): void
     {
         $browserKit = static::getPlaywrightClient();
-
-        // Set cookie via Playwright context (e.g. from a request)
-        $browserKit->context()->addCookies([
-            ['name' => 'sync_test', 'value' => 'ready', 'domain' => 'localhost', 'path' => '/'],
-        ]);
-
-        // The internal client doesn't automatically sync cookies FROM context TO Jar
-        // during request() because it's usually the other way around.
-        // But BrowserKit\PlaywrightClient does it after navigate.
+        $jar = $browserKit->getCookieJar();
+        $jar->set(new Cookie('live', 'a+b%'));
+        $jar->set(new Cookie('live', 'nested', path: '/admin'));
 
         $browserKit->request('GET', '/cookie');
+        self::assertSame('a+b%', $browserKit->getRequest()->cookies->get('live'));
 
-        // Let's manually trigger a sync if needed, or check if it happened.
-        // Actually, our internal PlaywrightClient doesn't have syncCookiesFromContext() yet.
-        // Only the other BrowserKit\PlaywrightClient does.
+        $browserKit->getPage()->evaluate("document.cookie = 'from_js=a%2Bb; Path=/'");
+        self::assertSame('a+b', $jar->get('from_js')?->getValue());
 
-        $this->assertContains('sync_test', array_keys($this->getCookiesFromBrowser()));
+        $jar->expire('live');
+        self::assertNull($jar->get('live'));
+        self::assertSame('nested', $jar->get('live', '/admin')?->getValue());
     }
 
-    private function getCookiesFromBrowser(): array
+    public function testBrowserKitDoesNotReplayRejectedCookies(): void
     {
-        $cookies = static::getPlaywrightClient()->context()->cookies();
-        $list = [];
-        foreach ($cookies as $c) {
-            $list[$c['name']] = $c['value'];
-        }
+        $browserKit = static::getPlaywrightClient();
+        $browserKit->request('GET', '/cookie?foreign=1');
 
-        return $list;
+        self::assertStringContainsString('domain=foreign.example', $browserKit->getInternalResponse()->getHeader('Set-Cookie'));
+        self::assertNull($browserKit->getCookieJar()->get('foreign'));
     }
 }

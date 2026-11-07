@@ -17,17 +17,10 @@ namespace Playwright\Symfony\Cookie;
 use Playwright\Browser\BrowserContextInterface;
 use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\BrowserKit\CookieJar as BrowserKitCookieJar;
+use Symfony\Component\BrowserKit\Response;
 
 /**
  * A BrowserKit cookie jar backed by the browser context.
- *
- * The real browser owns the cookies, so a jar holding its own copy is stale the moment javascript
- * or a response changes one, and writing to it has no effect on what the browser sends. Every read
- * and write here goes to the context instead, in the same spirit as
- * {@see \Symfony\Component\Panther\Cookie\CookieJar}.
- *
- * updateFromSetCookie(), updateFromResponse() and flushExpiredCookies() are inherited: the first
- * two funnel into set(), and the browser expires its own cookies.
  *
  * @author Kevin Bond <kevinbond@gmail.com>
  *
@@ -35,23 +28,26 @@ use Symfony\Component\BrowserKit\CookieJar as BrowserKitCookieJar;
  */
 final class CookieJar extends BrowserKitCookieJar
 {
+    private ?Response $browserResponse = null;
+
     /**
-     * @param \Closure(): string $defaultDomain the domain to scope cookies set without one, usually
-     *                                          the host currently being browsed
+     * @param \Closure(): ?BrowserContextInterface $context
+     * @param \Closure(): string                   $defaultDomain
      */
     public function __construct(
-        private readonly BrowserContextInterface $context,
+        private readonly \Closure $context,
         private readonly \Closure $defaultDomain,
     ) {
     }
 
     public function set(Cookie $cookie): void
     {
-        // playwright needs a domain/path pair: passing a url instead makes it derive the path from
-        // that url, which silently widens a cookie scoped to something narrower
+        $context = ($this->context)() ?? throw new \RuntimeException('Browser context is null - browser may not be started');
+
+        // Passing a URL would make Playwright derive the path from it.
         $data = [
             'name' => $cookie->getName(),
-            'value' => $cookie->getValue(),
+            'value' => $cookie->getRawValue(),
             'domain' => $cookie->getDomain() ?: ($this->defaultDomain)(),
             'path' => $cookie->getPath(),
             'secure' => $cookie->isSecure(),
@@ -62,7 +58,6 @@ final class CookieJar extends BrowserKitCookieJar
             $data['expires'] = (int) $expires;
         }
 
-        // playwright only accepts these three, spelled exactly like this
         $sameSite = match (strtolower((string) $cookie->getSameSite())) {
             'strict' => 'Strict',
             'lax' => 'Lax',
@@ -74,7 +69,7 @@ final class CookieJar extends BrowserKitCookieJar
             $data['sameSite'] = $sameSite;
         }
 
-        $this->context->addCookies([$data]);
+        $context->addCookies([$data]);
     }
 
     public function get(string $name, string $path = '/', ?string $domain = null): ?Cookie
@@ -84,7 +79,7 @@ final class CookieJar extends BrowserKitCookieJar
                 continue;
             }
 
-            if (null === $domain || '' === $cookie->getDomain() || str_ends_with('.'.$domain, '.'.ltrim($cookie->getDomain(), '.'))) {
+            if (!$domain || '' === $cookie->getDomain() || str_ends_with('.'.$domain, '.'.ltrim($cookie->getDomain(), '.'))) {
                 return $cookie;
             }
         }
@@ -92,18 +87,40 @@ final class CookieJar extends BrowserKitCookieJar
         return null;
     }
 
-    /**
-     * Unlike BrowserKit's jar, which is keyed by domain and path, this removes the cookie from
-     * every domain and path it is stored under.
-     */
     public function expire(string $name, ?string $path = '/', ?string $domain = null): void
     {
-        $this->context->deleteCookie($name);
+        $filters = ['name' => $name, 'path' => $path ?? '/'];
+
+        if ($domain) {
+            $filters['domain'] = $domain;
+        }
+
+        // Playwright PHP forwards a flat filter object to the browser.
+        ($this->context)()?->clearCookies($filters); // @phpstan-ignore argument.type
     }
 
     public function clear(): void
     {
-        $this->context->clearCookies();
+        ($this->context)()?->clearCookies();
+    }
+
+    /**
+     * BrowserKit replays Set-Cookie after navigation, even when the browser already handled it.
+     */
+    public function skipResponseCookies(Response $response): void
+    {
+        $this->browserResponse = $response;
+    }
+
+    public function updateFromResponse(Response $response, ?string $uri = null): void
+    {
+        if ($response === $this->browserResponse) {
+            $this->browserResponse = null;
+
+            return;
+        }
+
+        parent::updateFromResponse($response, $uri);
     }
 
     /**
@@ -111,7 +128,7 @@ final class CookieJar extends BrowserKitCookieJar
      */
     public function all(): array
     {
-        return array_map(self::toBrowserKitCookie(...), $this->context->cookies());
+        return array_map(self::toBrowserKitCookie(...), ($this->context)()?->cookies() ?? []);
     }
 
     /**
@@ -121,22 +138,11 @@ final class CookieJar extends BrowserKitCookieJar
     {
         $values = [];
 
-        // the browser does the matching the parent does by hand: domain, path, secure and expiry
-        foreach ($this->context->cookies([$uri]) as $cookie) {
-            $cookie = self::toBrowserKitCookie($cookie);
-
-            $values[$cookie->getName()] = $returnsRawValue ? $cookie->getRawValue() : $cookie->getValue();
+        foreach (($this->context)()?->cookies([$uri]) ?? [] as $cookie) {
+            $values[$cookie['name']] = $returnsRawValue ? $cookie['value'] : urldecode($cookie['value']);
         }
 
         return $values;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public function allRawValues(string $uri): array
-    {
-        return $this->allValues($uri, true);
     }
 
     /**
@@ -154,17 +160,13 @@ final class CookieJar extends BrowserKitCookieJar
             domain: self::toString($cookie['domain'] ?? null),
             secure: (bool) ($cookie['secure'] ?? false),
             httponly: (bool) ($cookie['httpOnly'] ?? false),
-            // playwright capitalizes it, BrowserKit round-trips whatever it was given
+            encodedValue: true,
             samesite: '' === $sameSite ? null : strtolower($sameSite),
         );
     }
 
     /**
-     * Playwright reports "expires" as a number: -1 for session cookies, a Unix timestamp
-     * (possibly float) otherwise. BrowserKit only accepts an int since 8.1; before that the
-     * parameter is ?string, parsed with createFromFormat('U'), so a numeric string is what
-     * satisfies every supported version. Past timestamps count as expired, so negatives must
-     * map to null.
+     * Playwright returns -1 for session cookies and can return fractional timestamps.
      */
     private static function normalizeExpires(mixed $expires): ?string
     {

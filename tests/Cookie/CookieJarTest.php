@@ -97,17 +97,23 @@ final class CookieJarTest extends TestCase
         $this->assertNull($jar->get('missing'));
     }
 
-    public function testExpireRemovesEveryDomainAndPathVariant(): void
+    public function testExpireRespectsDomainAndPath(): void
     {
         $context = new FakeBrowserContext();
         $context->addCookies([
-            ['name' => 'dupe', 'value' => '1', 'domain' => 'example.com', 'path' => '/'],
-            ['name' => 'kept', 'value' => '2', 'domain' => 'example.com', 'path' => '/'],
+            ['name' => 'dupe', 'value' => 'root', 'domain' => 'example.com', 'path' => '/'],
+            ['name' => 'dupe', 'value' => 'nested', 'domain' => 'example.com', 'path' => '/admin'],
+            ['name' => 'dupe', 'value' => 'other', 'domain' => 'other.com', 'path' => '/admin'],
         ]);
 
-        $this->createJar($context)->expire('dupe');
+        $jar = $this->createJar($context);
+        $jar->expire('dupe', '/admin', 'example.com');
 
-        $this->assertSame(['kept'], array_column($context->cookies, 'name'));
+        self::assertSame(['root', 'other'], array_column($context->cookies, 'value'));
+
+        $jar->expire('dupe', '/admin');
+
+        self::assertSame(['root'], array_column($context->cookies, 'value'));
     }
 
     public function testClearEmptiesTheContext(): void
@@ -123,23 +129,24 @@ final class CookieJarTest extends TestCase
     public function testAllValuesLetsTheBrowserScopeToTheUrl(): void
     {
         $context = new FakeBrowserContext();
-        $context->addCookies([['name' => 'a', 'value' => 'a b', 'domain' => 'example.com', 'path' => '/']]);
+        $context->addCookies([['name' => 'a', 'value' => 'a+b%2B', 'domain' => 'example.com', 'path' => '/']]);
 
         $jar = $this->createJar($context);
 
-        $this->assertSame(['a' => 'a b'], $jar->allValues('http://example.com/admin'));
+        $this->assertSame(['a' => 'a b+'], $jar->allValues('http://example.com/admin'));
         $this->assertSame(['http://example.com/admin'], $context->lastCookiesUrls);
-        $this->assertSame(['a' => 'a%20b'], $jar->allRawValues('http://example.com/admin'));
+        $this->assertSame(['a' => 'a+b%2B'], $jar->allRawValues('http://example.com/admin'));
+        $this->assertSame('a+b%2B', $jar->get('a')?->getRawValue());
     }
 
     public function testUpdateFromSetCookieWritesThroughToTheContext(): void
     {
         $context = new FakeBrowserContext();
 
-        $this->createJar($context)->updateFromSetCookie(['a=1; path=/; domain=example.com'], 'http://example.com/');
+        $this->createJar($context)->updateFromSetCookie(['a=a+b%2B; path=/; domain=example.com'], 'http://example.com/');
 
         $this->assertSame('example.com', $context->cookies[0]['domain']);
-        $this->assertSame('1', $context->cookies[0]['value']);
+        $this->assertSame('a+b%2B', $context->cookies[0]['value']);
     }
 
     public function testUpdateFromResponseWritesThroughToTheContext(): void
@@ -154,6 +161,6 @@ final class CookieJarTest extends TestCase
 
     private function createJar(FakeBrowserContext $context): CookieJar
     {
-        return new CookieJar($context, static fn (): string => 'localhost');
+        return new CookieJar(static fn (): FakeBrowserContext => $context, static fn (): string => 'localhost');
     }
 }
