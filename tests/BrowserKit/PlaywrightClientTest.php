@@ -20,15 +20,17 @@ use PHPUnit\Framework\TestCase;
 use Playwright\Exception\TimeoutException;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\BrowserKit\PlaywrightClient;
+use Playwright\Symfony\Cookie\CookieJar as PlaywrightCookieJar;
 use Playwright\Symfony\Tests\Client\Fixtures\FakeBrowserContext;
 use Playwright\Symfony\Tests\Client\Fixtures\FakePage;
-use Playwright\Symfony\Util\CookieJarSync;
 use Playwright\Symfony\Util\XPathHelper;
+use Symfony\Component\BrowserKit\Cookie;
+use Symfony\Component\BrowserKit\CookieJar;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Link;
 
 #[CoversClass(PlaywrightClient::class)]
-#[UsesClass(CookieJarSync::class)]
+#[UsesClass(PlaywrightCookieJar::class)]
 #[UsesClass(XPathHelper::class)]
 final class PlaywrightClientTest extends TestCase
 {
@@ -123,23 +125,16 @@ final class PlaywrightClientTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
     }
 
-    public function testRequestSyncsCookiesToBrowserContext(): void
+    public function testSeedsTheBrowserContextFromASuppliedCookieJar(): void
     {
         $context = new FakeBrowserContext();
-        $client = PlaywrightClient::fromContext($context);
+        $seed = new CookieJar();
+        $seed->set(new Cookie('session', 'a+b%', domain: 'example.test'));
 
-        // Set cookie via BrowserKit
-        $client->getCookieJar()->set(
-            new \Symfony\Component\BrowserKit\Cookie('session', 'abc123', null, '/', 'example.test')
-        );
+        $client = PlaywrightClient::fromContext($context, cookieJar: $seed);
 
-        // Request should complete without errors
-        $client->request('GET', 'http://example.test/page');
-
-        // Verify the request completed successfully
-        $response = $client->getLastResponse();
-        self::assertNotNull($response);
-        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('a%2Bb%25', $context->cookies[0]['value']);
+        self::assertSame('a+b%', $client->getCookieJar()->get('session')?->getValue());
     }
 
     public function testRequestHandlesHttpsUrls(): void
@@ -246,7 +241,15 @@ final class PlaywrightClientTest extends TestCase
 
     public function testClickFollowsPopupWhenEnabled(): void
     {
-        $context = new FakeBrowserContext();
+        $context = new class extends FakeBrowserContext {
+            public function waitForPopup(callable $action, array $options = []): PageInterface
+            {
+                $page = parent::waitForPopup($action, $options);
+                $page->goto('http://popup.example.test/');
+
+                return $page;
+            }
+        };
         $client = PlaywrightClient::fromContext($context);
         $client->setFollowPopups(true);
         $client->request('GET', 'http://example.test/');
@@ -258,6 +261,10 @@ final class PlaywrightClientTest extends TestCase
         self::assertSame(1, $context->waitForPopupCalls);
         self::assertNotSame($pageBeforeClick, $client->getPage());
         self::assertContains('click', array_column($pageBeforeClick->locatorCalls, 'method'));
+
+        $client->getCookieJar()->set(new Cookie('popup', 'value'));
+
+        self::assertSame('popup.example.test', $context->cookies[0]['domain']);
     }
 
     public function testClickStaysOnPageWhenNoPopupOpens(): void

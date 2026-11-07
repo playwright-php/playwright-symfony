@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Tests\Fixtures\App\Controller;
 
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -21,6 +22,12 @@ final class CookieController
 {
     public function show(Request $request): JsonResponse
     {
-        return new JsonResponse($request->cookies->all());
+        $response = new JsonResponse($request->cookies->all());
+
+        if ($request->query->getBoolean('foreign')) {
+            $response->headers->setCookie(Cookie::create('foreign', 'value', domain: 'foreign.example'));
+        }
+
+        return $response;
     }
 }
