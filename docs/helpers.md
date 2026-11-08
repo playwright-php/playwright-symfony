@@ -43,6 +43,39 @@ public function testGetPage(): void
 }
 ```
 
+### `getContext(): BrowserContextInterface`
+
+Return the primary client's browser context, creating the primary client on first use.
+Throws `RuntimeException` if no context is available.
+
+```php
+public function testBrowserContext(): void
+{
+    $context = $this->getContext();
+    $this->assertSame(static::getPlaywrightClient()->context(), $context);
+}
+```
+
+For another client created with `createPlaywrightClient()`, use its `context()` method instead.
+
+### `browserLaunchOptions(): array`
+
+Override this protected hook to supply launch options for the test class's shared browser.
+The default is an empty array. Browser arguments are appended to existing arguments, and other
+explicit options override environment-derived values.
+
+```php
+protected function browserLaunchOptions(): array
+{
+    return [
+        'args' => ['--disable-features=Translate', '--disable-translate'],
+    ];
+}
+```
+
+Launch arguments do not reconfigure a browser connected through a remote WebSocket endpoint.
+See [custom browser launch options](usage.md#custom-browser-launch-options).
+
 ### `getPlaywrightClient(): PlaywrightKernelClient`
 
 Return the primary client, creating it on first use and reusing it for the current test.

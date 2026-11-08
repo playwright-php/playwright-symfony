@@ -38,6 +38,35 @@ jobs:
           PLAYWRIGHT_HEADLESS: true
 ```
 
+## Retaining Failure Artifacts
+
+Enable tracing on the test step and upload the output even when tests fail:
+
+```yaml
+      - name: Run Tests
+        run: vendor/bin/phpunit
+        env:
+          PLAYWRIGHT_HEADLESS: 'true'
+          PW_TRACE: '1'
+          PW_TRACE_DIR: '${{ github.workspace }}/var/playwright/traces'
+          PW_TRACE_KEEP_SUCCESS: '0'
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: var/playwright/traces/
+          if-no-files-found: ignore
+```
+
+Failed tests save trace archives and page screenshots. Set `PW_TRACE_KEEP_SUCCESS` to `'1'` to
+retain successful test traces as well. When tests run in a container, use a trace directory visible
+to the PHP process and mount or copy it into the runner workspace before uploading.
+
+Trace files can contain page content, screenshots, source code, and request data. Treat them as
+potentially sensitive and restrict artifact access and retention accordingly.
+
 ## GitLab CI
 
 For GitLab, you can use a Node-capable image or install Node manually in your PHP environment.
