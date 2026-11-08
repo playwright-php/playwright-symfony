@@ -7,6 +7,14 @@ Before 1.0, breaking changes are released in minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- Add auto-waiting `$this->expect()` assertions to `PlaywrightTestCase`, with PHPUnit assertion counting and tracing.
+
+### Changed
+
+- `assertSelectorVisible()` and `assertSelectorHidden()` now retry until the locator reaches the expected state.
+
 ## [0.12.0] - 2026-11-06
 
 ### Changed

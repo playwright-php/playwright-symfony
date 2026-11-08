@@ -77,6 +77,24 @@ public function testTwoUsers(): void
 
 These assertions are provided by `PlaywrightTestAssertionsTrait` which is included in `PlaywrightTestCase`.
 
+### `expect(LocatorInterface|PageInterface $subject): ExpectInterface`
+
+Create a fluent, auto-waiting expectation for a locator or page. Expectations retry until they pass or reach their
+timeout, are counted by PHPUnit, and appear as groups in the subject's browser trace when tracing is active.
+
+```php
+public function testAsyncStatus(): void
+{
+    $page = $this->visit('/jobs/123');
+
+    $this->expect($page->locator('.status'))->toContainText('Complete');
+    $this->expect($page)->toHaveURL('http://localhost/jobs/123/complete');
+}
+```
+
+Use `withTimeout(1000)` to change the retry timeout for an expectation. The default is 5 seconds.
+Retries read the current browser state; they do not repeat clicks, submissions, or other test actions.
+
 ### `assertPageContains(string $text): void`
 
 Assert that the page HTML contains the specified text.
@@ -133,6 +151,10 @@ public function testHidden(): void
     $this->assertSelectorNotExists('.admin-menu');
 }
 ```
+
+`assertSelectorExists()`, `assertSelectorNotExists()`, and `assertSelectorTextContains()` are inherited from Symfony.
+They inspect a one-time snapshot of the current page HTML and do not retry. Use `expect()` when JavaScript updates must
+be awaited. `assertSelectorVisible()` and `assertSelectorHidden()` use auto-waiting Playwright expectations.
 
 ### `waitForSelector(string $selector, array $options = []): void`
 

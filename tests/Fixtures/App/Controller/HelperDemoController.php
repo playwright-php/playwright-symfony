@@ -44,12 +44,49 @@ final class HelperDemoController
                 document.body.appendChild(asyncBlock);
             }, 120);
         };
+
+        window.scheduleExpectationInsert = () => {
+            setTimeout(() => {
+                const block = document.createElement('div');
+                block.id = 'expect-inserted';
+                block.textContent = 'Inserted';
+                document.body.appendChild(block);
+            }, 120);
+        };
+
+        window.scheduleExpectationText = () => {
+            setTimeout(() => {
+                document.querySelector('#expect-text').textContent = 'Ready';
+            }, 120);
+        };
+
+        window.scheduleExpectationShow = () => {
+            setTimeout(() => {
+                document.querySelector('#expect-visible').hidden = false;
+            }, 120);
+        };
+
+        window.scheduleExpectationRemoval = () => {
+            setTimeout(() => {
+                document.querySelector('#expect-removed').remove();
+            }, 120);
+        };
+
+        window.scheduleExpectationHide = () => {
+            setTimeout(() => {
+                document.querySelector('#expect-hidden').hidden = true;
+            }, 120);
+        };
     </script>
 </head>
 <body>
     <h1>Helper Demo Ready</h1>
     <div id="visible-text">Visible block</div>
     <div id="hidden-text" style="display:none;">Hidden block</div>
+    <div id="expect-text">Loading</div>
+    <div id="expect-visible" hidden>Waiting to become visible</div>
+    <div id="expect-removed">Waiting to be removed</div>
+    <div id="expect-hidden">Waiting to become hidden</div>
 
     <form id="helper-form" method="POST" action="/helper-demo">
         <label for="name">Name</label>

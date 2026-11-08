@@ -14,7 +14,11 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Test\Assert;
 
+use Playwright\Locator\LocatorInterface;
 use Playwright\Page\PageInterface;
+use Playwright\Testing\Expect;
+use Playwright\Testing\ExpectDecorator;
+use Playwright\Testing\ExpectInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -36,12 +40,19 @@ trait PlaywrightTestAssertionsTrait
 
     protected function assertSelectorVisible(string $selector): void
     {
-        $this->assertTrue($this->getPage()->locator($selector)->isVisible(), "Selector '$selector' is not visible");
+        $this->expect($this->getPage()->locator($selector))->toBeVisible();
     }
 
     protected function assertSelectorHidden(string $selector): void
     {
-        $this->assertTrue($this->getPage()->locator($selector)->isHidden(), "Selector '$selector' is not hidden");
+        $this->expect($this->getPage()->locator($selector))->toBeHidden();
+    }
+
+    protected function expect(LocatorInterface|PageInterface $subject): ExpectInterface
+    {
+        $page = $subject instanceof PageInterface ? $subject : $subject->page();
+
+        return new ExpectDecorator(new Expect($subject, $page->context()->tracing()), $this);
     }
 
     protected function assertResponseStatusCode(int $expectedCode): void

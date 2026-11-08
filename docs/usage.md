@@ -40,6 +40,14 @@ $this->getPage()->waitForSelector('.success-message');
 
 `PlaywrightTestCase` includes several helper assertions to make your tests cleaner.
 
+Use `$this->expect($locator)` or `$this->expect($page)` for fluent assertions that retry against the live DOM. These
+expectations are counted by PHPUnit and included in Playwright traces when tracing is active.
+
+```php
+$this->expect($this->getPage()->locator('.success-message'))->toBeVisible();
+$this->expect($this->getPage())->toHaveTitle('Dashboard');
+```
+
 ### Content Assertions
 
 - `$this->assertPageContains(string $text)`
@@ -52,6 +60,10 @@ $this->getPage()->waitForSelector('.success-message');
 - `$this->assertSelectorHidden(string $selector)`
 - `$this->assertSelectorExists(string $selector)`
 - `$this->assertSelectorNotExists(string $selector)`
+
+The visibility helpers retry against the live DOM. The selector existence and text helpers are inherited from Symfony
+and inspect a one-time snapshot of the current page HTML. They do not retry; use `expect()` when JavaScript updates must
+be awaited.
 
 ### HTTP Assertions
 

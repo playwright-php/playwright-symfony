@@ -58,4 +58,44 @@ final class HelperAssertionsTest extends PlaywrightTestCase
         $this->assertFileExists($screenshotPath);
         @unlink($screenshotPath);
     }
+
+    public function testExpectRetriesAgainstTheLiveDom(): void
+    {
+        $page = $this->visit('/helper-demo');
+
+        $inserted = $page->locator('#expect-inserted');
+        $this->assertFalse($inserted->isAttached());
+        $page->evaluate('() => window.scheduleExpectationInsert()');
+        $this->expect($inserted)->toBeAttached();
+
+        $text = $page->locator('#expect-text');
+        $this->assertSame('Loading', $text->textContent());
+        $page->evaluate('() => window.scheduleExpectationText()');
+        $this->expect($text)->toContainText('Ready');
+
+        $visible = $page->locator('#expect-visible');
+        $this->assertFalse($visible->isVisible());
+        $page->evaluate('() => window.scheduleExpectationShow()');
+        $this->expect($visible)->toBeVisible();
+
+        $removed = $page->locator('#expect-removed');
+        $this->assertTrue($removed->isAttached());
+        $page->evaluate('() => window.scheduleExpectationRemoval()');
+        $this->expect($removed)->toHaveCount(0);
+    }
+
+    public function testVisibilityHelpersRetryAgainstTheLiveDom(): void
+    {
+        $page = $this->visit('/helper-demo');
+
+        $visible = $page->locator('#expect-visible');
+        $this->assertFalse($visible->isVisible());
+        $page->evaluate('() => window.scheduleExpectationShow()');
+        $this->assertSelectorVisible('#expect-visible');
+
+        $hidden = $page->locator('#expect-hidden');
+        $this->assertTrue($hidden->isVisible());
+        $page->evaluate('() => window.scheduleExpectationHide()');
+        $this->assertSelectorHidden('#expect-hidden');
+    }
 }
