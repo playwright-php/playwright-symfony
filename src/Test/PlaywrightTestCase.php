@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Test;
 
+use Playwright\Browser\BrowserContextInterface;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Client\BrowserRegistry;
 use Playwright\Symfony\Client\BrowserSessionInterface;
@@ -109,18 +110,34 @@ abstract class PlaywrightTestCase extends WebTestCase
     protected static ?PlaywrightKernelClient $playwrightClient = null;
     private static ?self $hookReceiver = null;
 
+    private bool $traceThisTest = false;
+
+    /** @var array<int, PlaywrightKernelClient> */
+    private array $tracedClients = [];
+
     protected function setUp(): void
     {
         parent::setUp();
         self::$hookReceiver = $this;
+        $this->traceThisTest = $this->shouldTrace();
+        $this->tracedClients = [];
     }
 
     protected function tearDown(): void
     {
+        $status = $this->status();
+
+        if ($status->isFailure() || $status->isError()) {
+            $this->captureFailureArtifacts($this->resolveTestName());
+        } elseif ($this->shouldKeepSuccessArtifacts()) {
+            $this->captureSuccessArtifacts($this->resolveTestName());
+        }
+
         $this->restoreExceptionHandlers();
         self::$playwrightClient = null;
         self::$hookReceiver = null;
         self::$sharedBrowser?->resetSessions();
+        $this->tracedClients = [];
 
         parent::tearDown();
     }
@@ -164,7 +181,7 @@ abstract class PlaywrightTestCase extends WebTestCase
 
     private static function getSharedBrowser(): BrowserRegistry
     {
-        $requestedBrowser = BrowserRegistry::fromEnvironment();
+        $requestedBrowser = BrowserRegistry::fromEnvironment(self::$hookReceiver?->browserLaunchOptions() ?? []);
         if (null !== self::$sharedBrowser && !self::$sharedBrowser->equals($requestedBrowser)) {
             self::$sharedBrowser->stop();
             self::$sharedBrowser = null;
@@ -207,6 +224,7 @@ abstract class PlaywrightTestCase extends WebTestCase
             $debugLogging,
         );
         self::getClient($client);
+        self::$hookReceiver?->startTracingForClient($client);
 
         return $client;
     }
@@ -242,6 +260,28 @@ abstract class PlaywrightTestCase extends WebTestCase
         }
     }
 
+    private function startTracingForClient(PlaywrightKernelClient $client): void
+    {
+        if (!$this->traceThisTest) {
+            return;
+        }
+
+        $context = $client->context();
+        $page = $client->getPage();
+
+        if (null === $context || null === $page) {
+            return;
+        }
+
+        $context->startTracing($page, [
+            'screenshots' => true,
+            'snapshots' => true,
+            'sources' => true,
+        ]);
+
+        $this->tracedClients[spl_object_id($client)] = $client;
+    }
+
     protected function visit(string $path): PageInterface
     {
         return static::getPlaywrightClient()->visit($path);
@@ -255,6 +295,16 @@ abstract class PlaywrightTestCase extends WebTestCase
         }
 
         return $page;
+    }
+
+    protected function getContext(): BrowserContextInterface
+    {
+        $context = static::getPlaywrightClient()->context();
+        if (null === $context) {
+            throw new \RuntimeException('No browser context available. Browser may not be started.');
+        }
+
+        return $context;
     }
 
     /**
@@ -316,6 +366,17 @@ abstract class PlaywrightTestCase extends WebTestCase
     protected function getLastResponse(): ?SymfonyResponse
     {
         return static::getPlaywrightClient()->getLastSymfonyResponse();
+    }
+
+    /**
+     * Override in a test class to pass launch options to the browser, e.g.:
+     * ['args' => ['--disable-features=Translate', '--disable-translate']]
+     *
+     * @return array<string, mixed>
+     */
+    protected function browserLaunchOptions(): array
+    {
+        return [];
     }
 
     /**
@@ -467,5 +528,128 @@ abstract class PlaywrightTestCase extends WebTestCase
         $service = self::getContainerService(AssetServer::class);
 
         return $service instanceof AssetServer ? $service : null;
+    }
+
+    private function shouldTrace(): bool
+    {
+        $env = $_SERVER['PW_TRACE'] ?? getenv('PW_TRACE');
+        $value = is_string($env) ? $env : '';
+
+        return '' !== $value && '0' !== $value;
+    }
+
+    private function shouldKeepSuccessArtifacts(): bool
+    {
+        $env = $_SERVER['PW_TRACE_KEEP_SUCCESS'] ?? getenv('PW_TRACE_KEEP_SUCCESS');
+        $value = is_string($env) ? $env : '';
+
+        return '' !== $value && '0' !== $value;
+    }
+
+    private function resolveTestName(): string
+    {
+        foreach (['name', 'getName'] as $method) {
+            if (!method_exists($this, $method)) {
+                continue;
+            }
+
+            $name = $this->{$method}();
+
+            if (is_string($name) && '' !== $name) {
+                return self::sanitizeFileName($name);
+            }
+        }
+
+        return 'test';
+    }
+
+    private static function sanitizeFileName(string $name): string
+    {
+        $sanitized = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?? '';
+        $sanitized = trim($sanitized, '_.');
+
+        return '' === $sanitized ? 'test' : $sanitized;
+    }
+
+    private function captureFailureArtifacts(string $testName): void
+    {
+        $this->persistTraceArtifacts($testName, true, 'failed');
+    }
+
+    private function captureSuccessArtifacts(string $testName): void
+    {
+        $this->persistTraceArtifacts($testName, false, 'success');
+    }
+
+    private function persistTraceArtifacts(string $testName, bool $captureScreenshot, string $resultSuffix): void
+    {
+        if (!$this->traceThisTest || [] === $this->tracedClients) {
+            return;
+        }
+
+        $dir = $this->resolveTraceDirectory();
+        $this->ensureDirectory($dir);
+        $artifactPrefix = $this->buildArtifactPrefix($testName, $resultSuffix);
+
+        $index = 0;
+
+        foreach ($this->tracedClients as $client) {
+            $page = $client->getPage();
+            $context = $client->context();
+
+            if (null === $page || null === $context) {
+                continue;
+            }
+
+            $suffix = 0 === $index ? '' : '-'.($index + 1);
+
+            if ($captureScreenshot) {
+                $page->screenshot($dir.'/'.$artifactPrefix.'_screenshot'.$suffix.'.png');
+            }
+
+            $context->stopTracing($page, $dir.'/'.$artifactPrefix.'_trace'.$suffix.'.zip');
+
+            ++$index;
+        }
+    }
+
+    private function buildArtifactPrefix(string $testName, string $resultSuffix): string
+    {
+        return sprintf(
+            '%s_%s_%s_%s',
+            $this->resolveTestClassName(),
+            $testName,
+            date('Ymd_His'),
+            self::sanitizeFileName($resultSuffix)
+        );
+    }
+
+    private function resolveTestClassName(): string
+    {
+        $class = static::class;
+        $shortName = strrchr($class, '\\');
+
+        return self::sanitizeFileName(false === $shortName ? $class : substr($shortName, 1));
+    }
+
+    private function resolveTraceDirectory(): string
+    {
+        $dir = $_SERVER['PW_TRACE_DIR'] ?? getenv('PW_TRACE_DIR');
+        if (is_string($dir) && '' !== trim($dir)) {
+            return rtrim(trim($dir), '/');
+        }
+
+        return getcwd().'/traces';
+    }
+
+    private function ensureDirectory(string $path): void
+    {
+        if (is_dir($path)) {
+            return;
+        }
+
+        if (!mkdir($path, 0777, true) && !is_dir($path)) {
+            throw new \RuntimeException(sprintf('Directory "%s" was not created', $path));
+        }
     }
 }
