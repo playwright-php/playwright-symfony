@@ -36,6 +36,7 @@ use Playwright\Page\Options\EmulateMediaOptions;
 use Playwright\Page\Options\FrameQueryOptions;
 use Playwright\Page\Options\GotoOptions;
 use Playwright\Page\Options\NavigationHistoryOptions;
+use Playwright\Page\Options\PageErrorsOptions;
 use Playwright\Page\Options\PdfOptions;
 use Playwright\Page\Options\ScreenshotOptions;
 use Playwright\Page\Options\ScriptTagOptions;
@@ -437,6 +438,11 @@ class FakePage implements PageInterface
     public function clearConsoleMessages(): PageInterface
     {
         return $this;
+    }
+
+    public function pageErrors(array|PageErrorsOptions $options = []): array
+    {
+        return [];
     }
 
     public function clearPageErrors(): PageInterface
