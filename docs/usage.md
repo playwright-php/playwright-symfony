@@ -61,9 +61,18 @@ $this->expect($this->getPage())->toHaveTitle('Dashboard');
 - `$this->assertSelectorExists(string $selector)`
 - `$this->assertSelectorNotExists(string $selector)`
 
-The visibility helpers retry against the live DOM. The selector existence and text helpers are inherited from Symfony
-and inspect a one-time snapshot of the current page HTML. They do not retry; use `expect()` when JavaScript updates must
-be awaited.
+The visibility helpers and Symfony's selector, text, count, title, input, checkbox and form assertions retry for up to
+5 seconds. Symfony assertions read a fresh browser document on each attempt while preserving their signatures and
+comparison rules. No explicit sleep or `waitForSelector()` is needed before these assertions.
+
+```php
+self::assertSelectorExists('.success-message');
+self::assertSelectorTextContains('.success-message', 'Saved');
+self::assertSelectorNotExists('.spinner');
+```
+
+Override `protected static function getDomAssertionTimeout(): int` to change the Symfony DOM assertion timeout in
+milliseconds. Use `$this->expect($locator)->withTimeout(1000)` for an individual Playwright expectation.
 
 ### HTTP Assertions
 

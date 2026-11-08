@@ -152,9 +152,25 @@ public function testHidden(): void
 }
 ```
 
-`assertSelectorExists()`, `assertSelectorNotExists()`, and `assertSelectorTextContains()` are inherited from Symfony.
-They inspect a one-time snapshot of the current page HTML and do not retry. Use `expect()` when JavaScript updates must
-be awaited. `assertSelectorVisible()` and `assertSelectorHidden()` use auto-waiting Playwright expectations.
+The Symfony DOM assertions retry against fresh snapshots of the browser document for up to 5 seconds:
+
+- `assertSelectorExists()`, `assertSelectorNotExists()` and `assertSelectorCount()`;
+- `assertSelectorTextContains()`, `assertSelectorTextSame()` and `assertSelectorTextNotContains()`, including their `assertAnySelector*()` variants;
+- `assertPageTitleSame()` and `assertPageTitleContains()`;
+- `assertInputValueSame()`, `assertInputValueNotSame()`, `assertCheckboxChecked()` and `assertCheckboxNotChecked()`;
+- `assertFormValue()` and `assertNoFormValue()`.
+
+Their public static signatures and custom failure messages stay compatible with Symfony. Comparisons keep Symfony's
+rules: text assertions inspect the first match, `assertAnySelector*()` uses Symfony's any-match constraints, and exact
+text comparison normalizes whitespace. Intermediate attempts do not increase the PHPUnit assertion count.
+
+Override `protected static function getDomAssertionTimeout(): int` to change this timeout in milliseconds. Returning
+`0` checks the current document once. An invalid selector fails immediately.
+
+`assertSelectorVisible()` and `assertSelectorHidden()` use auto-waiting Playwright expectations. Use `$this->expect()`
+for browser properties such as an input's current value (`toHaveValue()`) or a custom timeout (`withTimeout()`).
+The Symfony input and form assertions continue to inspect HTML attributes and successful form fields through DomCrawler.
+`assertPageContains()` and `assertPageNotContains()` inspect the page HTML once.
 
 ### `waitForSelector(string $selector, array $options = []): void`
 

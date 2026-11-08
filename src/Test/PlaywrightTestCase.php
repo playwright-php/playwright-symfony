@@ -21,6 +21,7 @@ use Playwright\Symfony\Client\Interception\AssetServer;
 use Playwright\Symfony\Client\PlaywrightKernelClient;
 use Playwright\Symfony\Client\RequestConverter;
 use Playwright\Symfony\Client\ResponseConverter;
+use Playwright\Symfony\Test\Assert\PlaywrightDomAssertionsTrait;
 use Playwright\Symfony\Test\Assert\PlaywrightTestAssertionsTrait;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -104,6 +105,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 abstract class PlaywrightTestCase extends WebTestCase
 {
     use PlaywrightTestAssertionsTrait;
+    use PlaywrightDomAssertionsTrait;
 
     protected static ?BrowserRegistry $sharedBrowser = null;
     protected static ?PlaywrightKernelClient $playwrightClient = null;

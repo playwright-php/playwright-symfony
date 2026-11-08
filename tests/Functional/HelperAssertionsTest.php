@@ -14,8 +14,11 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Tests\Functional;
 
+use PHPUnit\Framework\Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Playwright\Symfony\Test\PlaywrightTestCase;
 use Playwright\Symfony\Tests\Fixtures\App\TestKernel;
+use Playwright\Symfony\Tests\Fixtures\DomAssertionCases;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 final class HelperAssertionsTest extends PlaywrightTestCase
@@ -97,5 +100,25 @@ final class HelperAssertionsTest extends PlaywrightTestCase
         $this->assertTrue($hidden->isVisible());
         $page->evaluate('() => window.scheduleExpectationHide()');
         $this->assertSelectorHidden('#expect-hidden');
+    }
+
+    /** @return iterable<string, array{string, list<int|string>, string, string, int}> */
+    public static function changingDocuments(): iterable
+    {
+        yield from DomAssertionCases::changingDocuments();
+    }
+
+    /** @param list<int|string> $arguments */
+    #[DataProvider('changingDocuments')]
+    public function testSymfonyDomAssertionsRetryAgainstTheLiveDocument(string $method, array $arguments, string $beforeHtml, string $afterHtml, int $assertionCount): void
+    {
+        $page = $this->visit('/helper-demo');
+        $page->setContent($beforeHtml);
+        $page->evaluate('(html) => { setTimeout(() => { document.open(); document.write(html); document.close(); }, 150); }', $afterHtml);
+        $before = Assert::getCount();
+
+        self::{$method}(...$arguments);
+
+        self::assertSame($assertionCount, Assert::getCount() - $before);
     }
 }
