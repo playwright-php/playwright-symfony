@@ -18,6 +18,7 @@ use PHPUnit\Framework\Constraint\Callback;
 use PHPUnit\Framework\Constraint\Constraint;
 use PHPUnit\Framework\Constraint\LogicalAnd;
 use PHPUnit\Framework\Constraint\LogicalNot;
+use Playwright\Symfony\Client\PlaywrightKernelClient;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Test\Constraint as DomCrawlerConstraint;
 use Symfony\Component\DomCrawler\Test\Constraint\CrawlerSelectorExists;
@@ -145,17 +146,23 @@ trait PlaywrightDomAssertionsTrait
     private static function waitForDomConstraint(Constraint $constraint): Crawler
     {
         $deadline = hrtime(true) + max(0, static::getDomAssertionTimeout()) * 1_000_000;
+        $lastCrawler = null;
         while (true) {
-            $crawler = static::getClient()?->getCrawler();
-            if (null === $crawler) {
+            $client = static::getClient();
+            if (null === $client) {
                 static::fail('A client must have a crawler to make assertions. Did you forget to make an HTTP request?');
             }
-            if ($constraint->evaluate($crawler, '', true)) {
-                return $crawler;
+            // A navigation in progress counts as a failed attempt, so the deadline also bounds it.
+            $crawler = $client instanceof PlaywrightKernelClient ? $client->readCurrentCrawler() : $client->getCrawler();
+            if (null !== $crawler) {
+                if ($constraint->evaluate($crawler, '', true)) {
+                    return $crawler;
+                }
+                $lastCrawler = $crawler;
             }
             $remaining = $deadline - hrtime(true);
             if ($remaining <= 0) {
-                return $crawler;
+                return $lastCrawler ?? static::fail(sprintf('The page was still navigating when the DOM assertion timed out after %d ms.', static::getDomAssertionTimeout()));
             }
             usleep((int) min(50_000, ceil($remaining / 1000)));
         }

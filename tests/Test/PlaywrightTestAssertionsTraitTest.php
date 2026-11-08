@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Tests\Test;
 
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\TestCase;
 use Playwright\Assertions\Failure\AssertionException;
@@ -31,11 +32,13 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
 
     private ?PageInterface $page = null;
     private ?Response $response = null;
+    private static ?int $visibilityTimeout = null;
 
     protected function setUp(): void
     {
         $this->page = null;
         $this->response = null;
+        self::$visibilityTimeout = null;
     }
 
     public function testAssertPageContainsUsesPageContent(): void
@@ -86,6 +89,41 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         $locator->method('page')->willReturn($this->page);
 
         $this->assertSelectorHidden('.hidden');
+    }
+
+    public function testAssertSelectorVisibleFailsAsAnAssertionWithinTheConfiguredTimeout(): void
+    {
+        self::$visibilityTimeout = 0;
+        $locator = $this->createMock(LocatorInterface::class);
+        $locator->method('isVisible')->willReturn(false);
+        $this->page = $this->createPageWithTracing();
+        $this->page->method('locator')->willReturn($locator);
+        $locator->method('page')->willReturn($this->page);
+        $start = hrtime(true);
+
+        try {
+            $this->assertSelectorVisible('.missing');
+            self::fail('The visibility assertion passed.');
+        } catch (AssertionFailedError $e) {
+            self::assertStringContainsString("Selector '.missing' is not visible.", $e->getMessage());
+        }
+
+        self::assertLessThan(1000, (hrtime(true) - $start) / 1_000_000);
+    }
+
+    public function testAssertSelectorHiddenFailsAsAnAssertion(): void
+    {
+        self::$visibilityTimeout = 0;
+        $locator = $this->createMock(LocatorInterface::class);
+        $locator->method('isVisible')->willReturn(true);
+        $this->page = $this->createPageWithTracing();
+        $this->page->method('locator')->willReturn($locator);
+        $locator->method('page')->willReturn($this->page);
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage("Selector '.shown' is not hidden.");
+
+        $this->assertSelectorHidden('.shown');
     }
 
     public function testExpectAcceptsPageAndRecordsAssertion(): void
@@ -174,6 +212,11 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
     protected function getPage(): PageInterface
     {
         return $this->page ?? $this->createMock(PageInterface::class);
+    }
+
+    protected function getVisibilityAssertionTimeout(): ?int
+    {
+        return self::$visibilityTimeout;
     }
 
     protected function getLastResponse(): ?Response

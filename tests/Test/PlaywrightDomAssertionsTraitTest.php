@@ -15,10 +15,12 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Test;
 
 use PHPUnit\Framework\Assert;
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\TestCase;
+use Playwright\Symfony\Client\PlaywrightKernelClient;
 use Playwright\Symfony\Test\Assert\PlaywrightDomAssertionsTrait;
 use Symfony\Bundle\FrameworkBundle\Test\DomCrawlerAssertionsTrait;
 use Symfony\Component\BrowserKit\AbstractBrowser;
@@ -85,6 +87,34 @@ final class PlaywrightDomAssertionsTraitTest extends TestCase
         $this->expectException(ExpectationFailedException::class);
 
         self::assertSelectorTextSame('p', 'Ready');
+    }
+
+    public function testANavigationInProgressIsRetriedWithoutWaitingOutsideTheTimeout(): void
+    {
+        $client = $this->createMock(PlaywrightKernelClient::class);
+        $client->expects($this->never())->method('getCrawler');
+        $client->expects($this->exactly(2))->method('readCurrentCrawler')->willReturn(null, new Crawler('<p>Ready</p>'));
+        self::$client = $client;
+
+        self::assertSelectorExists('p');
+    }
+
+    public function testANavigationStillInProgressAtTheDeadlineFails(): void
+    {
+        self::$timeout = 20;
+        $client = $this->createStub(PlaywrightKernelClient::class);
+        $client->method('readCurrentCrawler')->willReturn(null);
+        self::$client = $client;
+        $start = hrtime(true);
+
+        try {
+            self::assertSelectorExists('p');
+            self::fail('The DOM assertion passed.');
+        } catch (AssertionFailedError $e) {
+            self::assertStringContainsString('still navigating', $e->getMessage());
+        }
+
+        self::assertLessThan(200, (hrtime(true) - $start) / 1_000_000);
     }
 
     public function testInvalidSelectorsFailWithoutRetrying(): void

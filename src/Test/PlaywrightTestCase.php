@@ -249,6 +249,11 @@ abstract class PlaywrightTestCase extends WebTestCase
         return static::getPlaywrightClient()->visit($path);
     }
 
+    protected function getVisibilityAssertionTimeout(): ?int
+    {
+        return static::getDomAssertionTimeout();
+    }
+
     protected function getPage(): PageInterface
     {
         $page = static::getPlaywrightClient()->getPage();
