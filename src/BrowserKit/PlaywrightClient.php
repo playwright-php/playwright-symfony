@@ -17,7 +17,7 @@ namespace Playwright\Symfony\BrowserKit;
 use Playwright\Browser\BrowserContextInterface;
 use Playwright\Exception\TimeoutException;
 use Playwright\Page\PageInterface;
-use Playwright\Symfony\Util\CookieJarSync;
+use Playwright\Symfony\Cookie\CookieJar as PlaywrightCookieJar;
 use Playwright\Symfony\Util\FormInteractor;
 use Playwright\Symfony\Util\XPathHelper;
 use Symfony\Component\BrowserKit\AbstractBrowser;
@@ -111,12 +111,19 @@ final class PlaywrightClient extends AbstractBrowser
         ?History $history = null,
         ?CookieJar $cookieJar = null,
     ) {
-        parent::__construct($server, $history, $cookieJar);
-
         $this->context = $context;
         $this->page = $page;
 
-        CookieJarSync::fromContext($this->cookieJar, $this->context);
+        $jar = new PlaywrightCookieJar(
+            static fn (): BrowserContextInterface => $context,
+            fn (): string => parse_url($this->page->url(), \PHP_URL_HOST) ?: parse_url($this->getAbsoluteUri('/'), \PHP_URL_HOST) ?: 'localhost',
+        );
+
+        parent::__construct($server, $history, $jar);
+
+        foreach ($cookieJar?->all() ?? [] as $cookie) {
+            $jar->set($cookie);
+        }
     }
 
     /**
@@ -221,8 +228,6 @@ final class PlaywrightClient extends AbstractBrowser
         $status = $playwrightResponse?->status() ?? 200;
         $headers = $playwrightResponse?->headers() ?? [];
 
-        CookieJarSync::toJarFromUrl($this->cookieJar, $this->context, $this->page->url());
-
         return $this->createBrowserKitResponse($content, $status, $headers);
     }
 
@@ -305,8 +310,6 @@ JS,
         $status = 200;
         $headers = [];
 
-        CookieJarSync::toJarFromUrl($this->cookieJar, $this->context, $this->page->url());
-
         return $this->createBrowserKitResponse($content, $status, $headers);
     }
 
@@ -316,7 +319,6 @@ JS,
         $status = 200;
         $headers = [];
 
-        CookieJarSync::toJarFromUrl($this->cookieJar, $this->context, $this->page->url());
         $this->lastResponse = $this->createBrowserKitResponse($content, $status, $headers);
 
         return new Crawler($content, $this->page->url());

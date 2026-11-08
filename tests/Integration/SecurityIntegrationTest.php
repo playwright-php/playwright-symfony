@@ -25,12 +25,12 @@ use Playwright\Symfony\Client\Interception\AssetServer;
 use Playwright\Symfony\Client\PlaywrightKernelClient;
 use Playwright\Symfony\Client\RequestConverter;
 use Playwright\Symfony\Client\ResponseConverter;
+use Playwright\Symfony\Cookie\CookieJar as PlaywrightCookieJar;
 use Playwright\Symfony\Test\PlaywrightTestCase;
 use Playwright\Symfony\Tests\Client\Fixtures\FakeBrowserContext;
 use Playwright\Symfony\Tests\Client\Fixtures\FakePage;
 use Playwright\Symfony\Tests\Client\Fixtures\TestBrowserRegistry;
 use Playwright\Symfony\Tests\Fixtures\App\TestKernel;
-use Playwright\Symfony\Util\CookieJarSync;
 use Symfony\Component\BrowserKit\AbstractBrowser;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
@@ -43,7 +43,7 @@ use Symfony\Component\Security\Core\User\InMemoryUser;
 #[UsesClass(FilesystemProxy::class)]
 #[UsesClass(BrowserRegistry::class)]
 #[UsesClass(AssetServer::class)]
-#[UsesClass(CookieJarSync::class)]
+#[UsesClass(PlaywrightCookieJar::class)]
 final class SecurityIntegrationTest extends TestCase
 {
     #[RunInSeparateProcess]

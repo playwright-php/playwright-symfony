@@ -17,7 +17,8 @@ requests to a web server, Playwright intercepts all outgoing requests and routes
 3. **Bridge Utilities**:
     - `RequestConverter`: Translates Playwright requests (headers, body, cookies) to Symfony `HttpFoundation` requests.
     - `ResponseConverter`: Translates Symfony responses back to Playwright `fulfill` options.
-    - `CookieJarSync`: Keeps the browser's cookies in sync with Symfony's `CookieJar`.
+    - `Cookie\CookieJar`: A BrowserKit `CookieJar` backed by the browser context, so the client's jar reads and
+      writes the cookies the browser actually holds.
 4. **Browser Registry (`BrowserRegistry`)**: Browser lifecycle manager that handles process management and
    `BrowserContext` isolation.
 5. **Asset Layer (`AssetServer`)**: A high-performance bypassing layer that serves static files and AssetMapper assets

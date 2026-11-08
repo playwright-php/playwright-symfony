@@ -32,6 +32,8 @@ class FakeBrowserContext implements BrowserContextInterface
     public array $cookies = [];
     /** @var list<string> */
     public array $initScripts = [];
+    /** @var array<string>|null */
+    public ?array $lastCookiesUrls = null;
     public array $extraHTTPHeaders = [];
     public ?array $httpCredentials = null;
     public int $waitForPopupCalls = 0;
@@ -57,7 +59,9 @@ class FakeBrowserContext implements BrowserContextInterface
         foreach ($cookies as $cookie) {
             $this->cookies = array_values(array_filter(
                 $this->cookies,
-                static fn ($c) => ($c['name'] ?? null) !== ($cookie['name'] ?? null)
+                static fn (array $existing): bool => $existing['name'] !== $cookie['name']
+                    || ($existing['domain'] ?? null) !== ($cookie['domain'] ?? null)
+                    || ($existing['path'] ?? null) !== ($cookie['path'] ?? null)
             ));
             $this->cookies[] = $cookie;
         }
@@ -70,7 +74,10 @@ class FakeBrowserContext implements BrowserContextInterface
 
     public function clearCookies(array $options = []): void
     {
-        $this->cookies = [];
+        $this->cookies = array_values(array_filter(
+            $this->cookies,
+            static fn (array $cookie): bool => [] !== array_diff_assoc($options, $cookie)
+        ));
     }
 
     public function clearPermissions(): void
@@ -83,6 +90,8 @@ class FakeBrowserContext implements BrowserContextInterface
 
     public function cookies(?array $urls = null): array
     {
+        $this->lastCookiesUrls = $urls;
+
         return $this->cookies;
     }
 
