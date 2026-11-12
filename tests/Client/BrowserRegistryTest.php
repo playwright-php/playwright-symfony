@@ -35,7 +35,7 @@ class BrowserRegistryTest extends TestCase
 
     protected function setUp(): void
     {
-        foreach (['PLAYWRIGHT_BROWSER', 'PLAYWRIGHT_HEADLESS', 'PLAYWRIGHT_CHANNEL', 'PW_CHANNEL'] as $name) {
+        foreach (['PLAYWRIGHT_BROWSER', 'PLAYWRIGHT_HEADLESS', 'PLAYWRIGHT_CHANNEL', 'PW_CHANNEL', 'PLAYWRIGHT_WS_ENDPOINT', 'PW_WS_ENDPOINT'] as $name) {
             $this->originalEnvironment[$name] = [getenv($name), $_ENV[$name] ?? null, $_SERVER[$name] ?? null];
             putenv($name);
             unset($_ENV[$name], $_SERVER[$name]);
@@ -134,6 +134,31 @@ class BrowserRegistryTest extends TestCase
         $second = BrowserRegistry::fromEnvironment();
 
         $this->assertFalse($first->equals($second));
+    }
+
+    public function testFromEnvironmentMergesAdditionalLaunchOptions(): void
+    {
+        putenv('PLAYWRIGHT_BROWSER=chromium');
+        putenv('PLAYWRIGHT_HEADLESS=1');
+        putenv('PLAYWRIGHT_WS_ENDPOINT=ws://localhost:3000');
+
+        $browser = BrowserRegistry::fromEnvironment([
+            'args' => [
+                '--disable-features=Translate',
+                '--disable-translate',
+            ],
+            'channel' => 'chrome',
+        ]);
+
+        $reflection = new \ReflectionProperty(BrowserRegistry::class, 'launchOptions');
+        $launchOptions = $reflection->getValue($browser);
+
+        $this->assertSame([
+            '--disable-features=Translate',
+            '--disable-translate',
+        ], $launchOptions['args']);
+        $this->assertSame('chrome', $launchOptions['channel']);
+        $this->assertSame('ws://localhost:3000', $launchOptions['wsEndpoint']);
     }
 
     public function testGetPageReturnsExistingPageWithoutStarting(): void

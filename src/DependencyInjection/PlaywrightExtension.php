@@ -150,6 +150,10 @@ final class PlaywrightExtension extends Extension
         $browserEnum = $browserMap[$browserTypeKey] ?? BrowserType::CHROMIUM;
 
         $tracing = is_array($cfg['tracing'] ?? null) ? $cfg['tracing'] : [];
+        $wsEndpoint = $cfg['ws_endpoint'] ?? null;
+        if (!is_string($wsEndpoint) || '' === trim($wsEndpoint)) {
+            $wsEndpoint = null;
+        }
 
         return [
             '$nodePath' => $cfg['node_path'] ?? $globalNodePath,
@@ -169,6 +173,7 @@ final class PlaywrightExtension extends Extension
             '$traceScreenshots' => $tracing['screenshots'] ?? false,
             '$traceSnapshots' => $tracing['snapshots'] ?? false,
             '$proxy' => $this->mapProxy($cfg['proxy'] ?? null),
+            '$wsEndpoint' => $wsEndpoint,
         ];
     }
 
@@ -218,6 +223,11 @@ final class PlaywrightExtension extends Extension
             BrowserType::WEBKIT => $client->webkit(),
             default => $client->chromium(),
         };
+
+        $wsEndpoint = $config->wsEndpoint;
+        if (is_string($wsEndpoint) && '' !== trim($wsEndpoint)) {
+            return $builder->connect($wsEndpoint)->newContext();
+        }
 
         return $builder->launch()->context();
     }

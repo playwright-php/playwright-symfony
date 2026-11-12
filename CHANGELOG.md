@@ -7,6 +7,12 @@ Before 1.0, breaking changes are released in minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in per-test tracing in `PlaywrightTestCase`, with trace archives and screenshots for failed tests, configurable artifact directories, and optional retention of successful test traces.
+- `PlaywrightTestCase::getContext()` to access the primary client's browser context.
+- `PlaywrightTestCase::browserLaunchOptions()` and additional options in `BrowserRegistry::fromEnvironment()`, merging browser arguments while allowing explicit options to override environment-derived values.
+
 ## [0.12.0] - 2026-11-06
 
 ### Changed

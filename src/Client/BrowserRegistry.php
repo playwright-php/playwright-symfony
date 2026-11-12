@@ -191,9 +191,11 @@ class BrowserRegistry implements BrowserSessionInterface
     }
 
     /**
-     * Creates a registry from the browser, headless and channel environment settings.
+     * Creates a registry from environment settings.
+     *
+     * @param array<string, mixed> $extraLaunchOptions
      */
-    public static function fromEnvironment(): self
+    public static function fromEnvironment(array $extraLaunchOptions = []): self
     {
         /** @var string|null $env */
         $env = $_ENV['PLAYWRIGHT_BROWSER'] ?? $_SERVER['PLAYWRIGHT_BROWSER'] ?? getenv('PLAYWRIGHT_BROWSER');
@@ -205,9 +207,44 @@ class BrowserRegistry implements BrowserSessionInterface
         $headless = 'false' !== ($_ENV['PLAYWRIGHT_HEADLESS'] ?? $_SERVER['PLAYWRIGHT_HEADLESS'] ?? getenv('PLAYWRIGHT_HEADLESS'));
         $channel = $_ENV['PLAYWRIGHT_CHANNEL'] ?? $_SERVER['PLAYWRIGHT_CHANNEL'] ?? (getenv('PLAYWRIGHT_CHANNEL') ?: null)
             ?? $_ENV['PW_CHANNEL'] ?? $_SERVER['PW_CHANNEL'] ?? getenv('PW_CHANNEL');
-        $launchOptions = is_string($channel) && '' !== $channel ? ['channel' => $channel] : [];
+        $envLaunchOptions = is_string($channel) && '' !== $channel ? ['channel' => $channel] : [];
 
-        return new self($browserType, $headless, $launchOptions);
+        $wsEndpoint = $_ENV['PLAYWRIGHT_WS_ENDPOINT'] ?? $_SERVER['PLAYWRIGHT_WS_ENDPOINT'] ?? getenv('PLAYWRIGHT_WS_ENDPOINT');
+        if (!is_string($wsEndpoint) || '' === trim($wsEndpoint)) {
+            $wsEndpoint = $_ENV['PW_WS_ENDPOINT'] ?? $_SERVER['PW_WS_ENDPOINT'] ?? getenv('PW_WS_ENDPOINT');
+        }
+
+        if (is_string($wsEndpoint) && '' !== trim($wsEndpoint)) {
+            $envLaunchOptions['wsEndpoint'] = $wsEndpoint;
+        }
+
+        return new self($browserType, $headless, self::mergeLaunchOptions($envLaunchOptions, $extraLaunchOptions));
+    }
+
+    /**
+     * Merge browser launch options while appending args instead of overwriting them.
+     *
+     * @param array<string, mixed> $base
+     * @param array<string, mixed> $extra
+     *
+     * @return array<string, mixed>
+     */
+    private static function mergeLaunchOptions(array $base, array $extra): array
+    {
+        foreach ($extra as $key => $value) {
+            if ('args' === $key && is_array($value)) {
+                $existingArgs = $base['args'] ?? [];
+                $existingArgs = is_array($existingArgs) ? $existingArgs : [];
+                $mergedArgs = array_values(array_filter(array_merge($existingArgs, array_values(array_filter($value, 'is_string'))), 'is_string'));
+                $base['args'] = $mergedArgs;
+
+                continue;
+            }
+
+            $base[$key] = $value;
+        }
+
+        return $base;
     }
 
     /**
@@ -241,6 +278,12 @@ class BrowserRegistry implements BrowserSessionInterface
 
         if (is_array($args) && [] !== $args) {
             $builder->withArgs(array_values(array_filter($args, 'is_string')));
+        }
+
+        // Jetzt mit konfiguriertem Builder verbinden:
+        $wsEndpoint = $this->launchOptions['wsEndpoint'] ?? null;
+        if (is_string($wsEndpoint) && '' !== trim($wsEndpoint)) {
+            return $builder->connect($wsEndpoint);
         }
 
         return $builder->launch();
