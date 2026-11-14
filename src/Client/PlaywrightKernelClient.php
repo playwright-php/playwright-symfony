@@ -337,25 +337,41 @@ class PlaywrightKernelClient extends AbstractBrowser
             return new Crawler('', $this->baseUrl);
         }
 
-        $content = '';
-        $maxRetries = 5;
-        $retryCount = 0;
-
-        while ($retryCount < $maxRetries) {
-            try {
-                $content = $page->content() ?? '';
-                break;
-            } catch (\Throwable $e) {
-                if (str_contains($e->getMessage(), 'navigating')) {
-                    usleep(200000); // 200ms
-                    ++$retryCount;
-                    continue;
-                }
-                throw $e;
+        for ($retryCount = 0; $retryCount < 5; ++$retryCount) {
+            $crawler = $this->readCrawler($page);
+            if (null !== $crawler) {
+                return $crawler;
             }
+            usleep(200000); // 200ms
         }
 
-        return new Crawler($content, $page->url());
+        return new Crawler('', $page->url());
+    }
+
+    /**
+     * Reads the live page content once, without waiting for a navigation in progress.
+     *
+     * Returns null while the page is navigating, so callers can apply their own deadline.
+     *
+     * @internal
+     */
+    public function readCurrentCrawler(): ?Crawler
+    {
+        $page = $this->getPage();
+
+        return null === $page ? new Crawler('', $this->baseUrl) : $this->readCrawler($page);
+    }
+
+    private function readCrawler(PageInterface $page): ?Crawler
+    {
+        try {
+            return new Crawler($page->content() ?? '', $page->url());
+        } catch (\Throwable $e) {
+            if (str_contains($e->getMessage(), 'navigating')) {
+                return null;
+            }
+            throw $e;
+        }
     }
 
     /**

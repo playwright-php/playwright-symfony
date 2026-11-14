@@ -14,7 +14,12 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Test\Assert;
 
+use Playwright\Assertions\Failure\AssertionException;
+use Playwright\Locator\LocatorInterface;
 use Playwright\Page\PageInterface;
+use Playwright\Testing\Expect;
+use Playwright\Testing\ExpectDecorator;
+use Playwright\Testing\ExpectInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -36,12 +41,45 @@ trait PlaywrightTestAssertionsTrait
 
     protected function assertSelectorVisible(string $selector): void
     {
-        $this->assertTrue($this->getPage()->locator($selector)->isVisible(), "Selector '$selector' is not visible");
+        try {
+            $this->expectSelector($selector)->toBeVisible();
+        } catch (AssertionException $e) {
+            $this->fail("Selector '$selector' is not visible.\n".$e->getMessage());
+        }
     }
 
     protected function assertSelectorHidden(string $selector): void
     {
-        $this->assertTrue($this->getPage()->locator($selector)->isHidden(), "Selector '$selector' is not hidden");
+        try {
+            $this->expectSelector($selector)->toBeHidden();
+        } catch (AssertionException $e) {
+            $this->fail("Selector '$selector' is not hidden.\n".$e->getMessage());
+        }
+    }
+
+    /**
+     * Timeout in milliseconds for the visibility helpers, or null for the Playwright default.
+     *
+     * @internal
+     */
+    protected function getVisibilityAssertionTimeout(): ?int
+    {
+        return null;
+    }
+
+    private function expectSelector(string $selector): ExpectInterface
+    {
+        $expect = $this->expect($this->getPage()->locator($selector));
+        $timeout = $this->getVisibilityAssertionTimeout();
+
+        return null === $timeout ? $expect : $expect->withTimeout(max(0, $timeout));
+    }
+
+    protected function expect(LocatorInterface|PageInterface $subject): ExpectInterface
+    {
+        $page = $subject instanceof PageInterface ? $subject : $subject->page();
+
+        return new ExpectDecorator(new Expect($subject, $page->context()->tracing()), $this);
     }
 
     protected function assertResponseStatusCode(int $expectedCode): void

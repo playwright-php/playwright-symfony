@@ -14,11 +14,15 @@ declare(strict_types=1);
 
 namespace Playwright\Symfony\Tests\Test;
 
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\TestCase;
+use Playwright\Assertions\Failure\AssertionException;
+use Playwright\Browser\BrowserContextInterface;
 use Playwright\Locator\LocatorInterface;
 use Playwright\Page\PageInterface;
 use Playwright\Symfony\Test\Assert\PlaywrightTestAssertionsTrait;
+use Playwright\Tracing\TracingInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 #[CoversTrait(PlaywrightTestAssertionsTrait::class)]
@@ -28,11 +32,13 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
 
     private ?PageInterface $page = null;
     private ?Response $response = null;
+    private static ?int $visibilityTimeout = null;
 
     protected function setUp(): void
     {
         $this->page = null;
         $this->response = null;
+        self::$visibilityTimeout = null;
     }
 
     public function testAssertPageContainsUsesPageContent(): void
@@ -57,30 +63,107 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
 
     public function testAssertSelectorVisible(): void
     {
-        $this->page = $this->createMock(PageInterface::class);
         $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('isVisible')->willReturn(true);
+        $locator->expects($this->exactly(2))->method('isVisible')->willReturnOnConsecutiveCalls(false, true);
 
+        $this->page = $this->createPageWithTracing();
         $this->page->expects($this->once())
             ->method('locator')
             ->with('.visible')
             ->willReturn($locator);
+        $locator->method('page')->willReturn($this->page);
 
         $this->assertSelectorVisible('.visible');
     }
 
     public function testAssertSelectorHidden(): void
     {
-        $this->page = $this->createMock(PageInterface::class);
         $locator = $this->createMock(LocatorInterface::class);
-        $locator->expects($this->once())->method('isHidden')->willReturn(true);
+        $locator->expects($this->exactly(2))->method('isVisible')->willReturnOnConsecutiveCalls(true, false);
 
+        $this->page = $this->createPageWithTracing();
         $this->page->expects($this->once())
             ->method('locator')
             ->with('.hidden')
             ->willReturn($locator);
+        $locator->method('page')->willReturn($this->page);
 
         $this->assertSelectorHidden('.hidden');
+    }
+
+    public function testAssertSelectorVisibleFailsAsAnAssertionWithinTheConfiguredTimeout(): void
+    {
+        self::$visibilityTimeout = 0;
+        $locator = $this->createMock(LocatorInterface::class);
+        $locator->method('isVisible')->willReturn(false);
+        $this->page = $this->createPageWithTracing();
+        $this->page->method('locator')->willReturn($locator);
+        $locator->method('page')->willReturn($this->page);
+        $start = hrtime(true);
+
+        try {
+            $this->assertSelectorVisible('.missing');
+            self::fail('The visibility assertion passed.');
+        } catch (AssertionFailedError $e) {
+            self::assertStringContainsString("Selector '.missing' is not visible.", $e->getMessage());
+        }
+
+        self::assertLessThan(1000, (hrtime(true) - $start) / 1_000_000);
+    }
+
+    public function testAssertSelectorHiddenFailsAsAnAssertion(): void
+    {
+        self::$visibilityTimeout = 0;
+        $locator = $this->createMock(LocatorInterface::class);
+        $locator->method('isVisible')->willReturn(true);
+        $this->page = $this->createPageWithTracing();
+        $this->page->method('locator')->willReturn($locator);
+        $locator->method('page')->willReturn($this->page);
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage("Selector '.shown' is not hidden.");
+
+        $this->assertSelectorHidden('.shown');
+    }
+
+    public function testExpectAcceptsPageAndRecordsAssertion(): void
+    {
+        $this->page = $this->createPageWithTracing();
+        $this->page->expects($this->once())->method('url')->willReturn('http://localhost/ready');
+
+        $before = $this->numberOfAssertionsPerformed();
+
+        $this->expect($this->page)->toHaveURL('http://localhost/ready');
+
+        $this->assertSame($before + 1, $this->numberOfAssertionsPerformed());
+    }
+
+    public function testExpectUsesTheLocatorPageAndRecordsAssertion(): void
+    {
+        $this->page = $this->createMock(PageInterface::class);
+        $this->page->expects($this->never())->method('context');
+        $otherPage = $this->createPageWithTracing();
+        $locator = $this->createMock(LocatorInterface::class);
+        $locator->method('page')->willReturn($otherPage);
+        $locator->expects($this->once())->method('isVisible')->willReturn(false);
+        $before = $this->numberOfAssertionsPerformed();
+
+        $this->expect($locator)->not()->toBeVisible();
+
+        $this->assertSame($before + 1, $this->numberOfAssertionsPerformed());
+    }
+
+    public function testExpectHonorsTimeoutAndClosesTracingOnFailure(): void
+    {
+        $page = $this->createPageWithTracing();
+        $locator = $this->createMock(LocatorInterface::class);
+        $locator->method('page')->willReturn($page);
+        $locator->expects($this->once())->method('isVisible')->willReturn(false);
+
+        $this->expectException(AssertionException::class);
+        $this->expectExceptionMessage('Expected locator to be visible.');
+
+        $this->expect($locator)->withTimeout(0)->toBeVisible();
     }
 
     public function testAssertResponseStatusCode(): void
@@ -131,8 +214,28 @@ class PlaywrightTestAssertionsTraitTest extends TestCase
         return $this->page ?? $this->createMock(PageInterface::class);
     }
 
+    protected function getVisibilityAssertionTimeout(): ?int
+    {
+        return self::$visibilityTimeout;
+    }
+
     protected function getLastResponse(): ?Response
     {
         return $this->response;
+    }
+
+    private function createPageWithTracing(): PageInterface
+    {
+        $tracing = $this->createMock(TracingInterface::class);
+        $tracing->expects($this->once())->method('group');
+        $tracing->expects($this->once())->method('groupEnd');
+
+        $context = $this->createMock(BrowserContextInterface::class);
+        $context->method('tracing')->willReturn($tracing);
+
+        $page = $this->createMock(PageInterface::class);
+        $page->method('context')->willReturn($context);
+
+        return $page;
     }
 }

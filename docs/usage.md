@@ -40,6 +40,14 @@ $this->getPage()->waitForSelector('.success-message');
 
 `PlaywrightTestCase` includes several helper assertions to make your tests cleaner.
 
+Use `$this->expect($locator)` or `$this->expect($page)` for fluent assertions that retry against the live DOM. These
+expectations are counted by PHPUnit and included in Playwright traces when tracing is active.
+
+```php
+$this->expect($this->getPage()->locator('.success-message'))->toBeVisible();
+$this->expect($this->getPage())->toHaveTitle('Dashboard');
+```
+
 ### Content Assertions
 
 - `$this->assertPageContains(string $text)`
@@ -52,6 +60,19 @@ $this->getPage()->waitForSelector('.success-message');
 - `$this->assertSelectorHidden(string $selector)`
 - `$this->assertSelectorExists(string $selector)`
 - `$this->assertSelectorNotExists(string $selector)`
+
+The visibility helpers and Symfony's selector, text, count, title, input, checkbox and form assertions retry for up to
+5 seconds. Symfony assertions read a fresh browser document on each attempt while preserving their signatures and
+comparison rules. No explicit sleep or `waitForSelector()` is needed before these assertions.
+
+```php
+self::assertSelectorExists('.success-message');
+self::assertSelectorTextContains('.success-message', 'Saved');
+self::assertSelectorNotExists('.spinner');
+```
+
+Override `protected static function getDomAssertionTimeout(): int` to change the Symfony DOM assertion timeout in
+milliseconds. Use `$this->expect($locator)->withTimeout(1000)` for an individual Playwright expectation.
 
 ### HTTP Assertions
 

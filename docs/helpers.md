@@ -77,6 +77,24 @@ public function testTwoUsers(): void
 
 These assertions are provided by `PlaywrightTestAssertionsTrait` which is included in `PlaywrightTestCase`.
 
+### `expect(LocatorInterface|PageInterface $subject): ExpectInterface`
+
+Create a fluent, auto-waiting expectation for a locator or page. Expectations retry until they pass or reach their
+timeout, are counted by PHPUnit, and appear as groups in the subject's browser trace when tracing is active.
+
+```php
+public function testAsyncStatus(): void
+{
+    $page = $this->visit('/jobs/123');
+
+    $this->expect($page->locator('.status'))->toContainText('Complete');
+    $this->expect($page)->toHaveURL('http://localhost/jobs/123/complete');
+}
+```
+
+Use `withTimeout(1000)` to change the retry timeout for an expectation. The default is 5 seconds.
+Retries read the current browser state; they do not repeat clicks, submissions, or other test actions.
+
 ### `assertPageContains(string $text): void`
 
 Assert that the page HTML contains the specified text.
@@ -133,6 +151,26 @@ public function testHidden(): void
     $this->assertSelectorNotExists('.admin-menu');
 }
 ```
+
+The Symfony DOM assertions retry against fresh snapshots of the browser document for up to 5 seconds:
+
+- `assertSelectorExists()`, `assertSelectorNotExists()` and `assertSelectorCount()`;
+- `assertSelectorTextContains()`, `assertSelectorTextSame()` and `assertSelectorTextNotContains()`, including their `assertAnySelector*()` variants;
+- `assertPageTitleSame()` and `assertPageTitleContains()`;
+- `assertInputValueSame()`, `assertInputValueNotSame()`, `assertCheckboxChecked()` and `assertCheckboxNotChecked()`;
+- `assertFormValue()` and `assertNoFormValue()`.
+
+Their public static signatures and custom failure messages stay compatible with Symfony. Comparisons keep Symfony's
+rules: text assertions inspect the first match, `assertAnySelector*()` uses Symfony's any-match constraints, and exact
+text comparison normalizes whitespace. Intermediate attempts do not increase the PHPUnit assertion count.
+
+Override `protected static function getDomAssertionTimeout(): int` to change this timeout in milliseconds. Returning
+`0` checks the current document once. An invalid selector fails immediately.
+
+`assertSelectorVisible()` and `assertSelectorHidden()` use auto-waiting Playwright expectations. Use `$this->expect()`
+for browser properties such as an input's current value (`toHaveValue()`) or a custom timeout (`withTimeout()`).
+The Symfony input and form assertions continue to inspect HTML attributes and successful form fields through DomCrawler.
+`assertPageContains()` and `assertPageNotContains()` inspect the page HTML once.
 
 ### `waitForSelector(string $selector, array $options = []): void`
 

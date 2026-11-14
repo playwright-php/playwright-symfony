@@ -7,6 +7,16 @@ Before 1.0, breaking changes are released in minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- Add auto-waiting `$this->expect()` assertions to `PlaywrightTestCase`, with PHPUnit assertion counting and tracing.
+
+### Changed
+
+- Require Playwright PHP 1.6 or newer.
+- `assertSelectorVisible()` and `assertSelectorHidden()` now retry until the locator reaches the expected state.
+- Symfony selector, text, count, title, input, checkbox and form assertions now retry against the browser document for up to 5 seconds, configurable through `getDomAssertionTimeout()`.
+
 ## [0.12.0] - 2026-11-06
 
 ### Changed
