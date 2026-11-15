@@ -16,6 +16,13 @@ Before 1.0, breaking changes are released in minor versions.
 - Require Playwright PHP 1.6 or newer.
 - `assertSelectorVisible()` and `assertSelectorHidden()` now retry until the locator reaches the expected state.
 - Symfony selector, text, count, title, input, checkbox and form assertions now retry against the browser document for up to 5 seconds, configurable through `getDomAssertionTimeout()`.
+- `getCookieJar()` now returns a jar backed by the browser context, so it reads the cookies the browser actually holds and writing to it reaches the browser. The internal `CookieJarSync`, which copied cookies into a separate jar at a few fixed points, is gone (#52).
+- **BC break:** a `CookieJar` passed to `PlaywrightClient` now seeds the browser context. `getCookieJar()` returns the live jar, and further changes to the supplied jar do not affect the client (#52).
+
+### Fixed
+
+- `restart()` clears the cookies of the browser context (#52).
+- Cookies read from the jar return their decoded value from `getValue()`, as BrowserKit does; `getRawValue()` keeps the encoded form (#52).
 
 ## [0.12.0] - 2026-11-06
 
