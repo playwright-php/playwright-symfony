@@ -20,6 +20,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Browser\BrowserContextInterface;
 use Playwright\Browser\BrowserInterface;
+use Playwright\Exception\ProtocolErrorException;
 use Playwright\PlaywrightClient;
 use Playwright\Symfony\Client\BrowserRegistry;
 use Playwright\Symfony\Client\BrowserSession;
@@ -241,6 +242,44 @@ class BrowserRegistryTest extends TestCase
 
         $this->assertTrue($firstContext->closed);
         $this->assertTrue($secondContext->closed);
+    }
+
+    public function testCreateSessionLeavesAnApplicationFailureAlone(): void
+    {
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->once())
+            ->method('newContext')
+            ->willThrowException(new \LogicException('Raised by the application.'));
+        $driver->expects($this->never())->method('close');
+
+        $browser = new BrowserRegistry('chromium', true);
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
+
+        $this->expectException(\LogicException::class);
+
+        $browser->createSession();
+    }
+
+    public function testCreateSessionKeepsTheBrowserWhileASessionIsOpen(): void
+    {
+        $contexts = [new DummyBrowserContext(new DummyPage())];
+        $driver = $this->createMock(BrowserInterface::class);
+        $driver->expects($this->exactly(2))
+            ->method('newContext')
+            ->willReturnCallback(static function () use (&$contexts): DummyBrowserContext {
+                return array_shift($contexts) ?? throw new ProtocolErrorException('Invalid contextId returned from transport', 0);
+            });
+        $driver->expects($this->never())->method('close');
+
+        $browser = new BrowserRegistry('chromium', true);
+        $refBrowser = new \ReflectionProperty(BrowserRegistry::class, 'browser');
+        $refBrowser->setValue($browser, $driver);
+        $browser->createSession();
+
+        $this->expectException(ProtocolErrorException::class);
+
+        $browser->createSession();
     }
 
     public function testCloseSessionClosesAndUnregistersTheSession(): void
