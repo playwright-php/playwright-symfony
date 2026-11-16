@@ -189,6 +189,7 @@ class PlaywrightExtensionTest extends TestCase
                         'args' => ['--foo'],
                         'env' => ['DEBUG' => 'pw:*'],
                         'screenshot_dir' => '/tmp/shots',
+                        'ws_endpoint' => ' ws://remote-browser:3000 ',
                     ],
                 ],
             ],
@@ -205,6 +206,7 @@ class PlaywrightExtensionTest extends TestCase
         $this->assertSame(['--foo'], $definition->getArgument('$args'));
         $this->assertSame(['DEBUG' => 'pw:*'], $definition->getArgument('$env'));
         $this->assertSame('/tmp/shots', $definition->getArgument('$screenshotDir'));
+        $this->assertSame('ws://remote-browser:3000', $definition->getArgument('$wsEndpoint'));
     }
 
     public function testBrowserContextDefinitionUsesConfigOnlyFactory(): void
@@ -250,6 +252,7 @@ class PlaywrightExtensionTest extends TestCase
                 'browsers' => [
                     'default' => [
                         'channel' => 'chrome-beta',
+                        'ws_endpoint' => 'ws://remote-browser:3000',
                         'min_node_version' => '22.0.0',
                         'downloads_dir' => '/tmp/dl',
                         'videos_dir' => '/tmp/vid',
@@ -262,6 +265,7 @@ class PlaywrightExtensionTest extends TestCase
 
         $def = $container->getDefinition('playwright.browser.default.config');
         $this->assertSame('chrome-beta', $def->getArgument('$channel'));
+        $this->assertSame('ws://remote-browser:3000', $def->getArgument('$wsEndpoint'));
         $this->assertSame('22.0.0', $def->getArgument('$minNodeVersion'));
         $this->assertSame('/tmp/dl', $def->getArgument('$downloadsDir'));
         $this->assertSame('/tmp/vid', $def->getArgument('$videosDir'));

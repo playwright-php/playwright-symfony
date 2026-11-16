@@ -10,6 +10,7 @@ Before 1.0, breaking changes are released in minor versions.
 ### Added
 
 - Add auto-waiting `$this->expect()` assertions to `PlaywrightTestCase`, with PHPUnit assertion counting and tracing.
+- Configure remote browser connections with the per-browser `ws_endpoint` option or the `PLAYWRIGHT_WS_ENDPOINT` / `PW_WS_ENDPOINT` environment variables.
 
 ### Changed
 

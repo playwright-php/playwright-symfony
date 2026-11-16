@@ -38,7 +38,7 @@ use Playwright\PlaywrightFactory;
  * - Create and manage browser contexts and pages
  * - Close contexts between tests for isolation while reusing the browser instance
  * - Set up routing callbacks for request interception via setupRouting()
- * - Read configuration from environment variables (PLAYWRIGHT_BROWSER, PLAYWRIGHT_HEADLESS)
+ * - Read browser configuration from environment variables (including PLAYWRIGHT_*)
  *
  * Usage:
  * - Typically instantiated via BrowserRegistry::fromEnvironment() in PlaywrightTestCase
@@ -191,7 +191,7 @@ class BrowserRegistry implements BrowserSessionInterface
     }
 
     /**
-     * Creates a registry from the browser, headless and channel environment settings.
+     * Creates a registry from browser, headless, channel, and endpoint environment settings.
      */
     public static function fromEnvironment(): self
     {
@@ -206,6 +206,14 @@ class BrowserRegistry implements BrowserSessionInterface
         $channel = $_ENV['PLAYWRIGHT_CHANNEL'] ?? $_SERVER['PLAYWRIGHT_CHANNEL'] ?? (getenv('PLAYWRIGHT_CHANNEL') ?: null)
             ?? $_ENV['PW_CHANNEL'] ?? $_SERVER['PW_CHANNEL'] ?? getenv('PW_CHANNEL');
         $launchOptions = is_string($channel) && '' !== $channel ? ['channel' => $channel] : [];
+        $wsEndpoint = $_ENV['PLAYWRIGHT_WS_ENDPOINT'] ?? $_SERVER['PLAYWRIGHT_WS_ENDPOINT'] ?? getenv('PLAYWRIGHT_WS_ENDPOINT');
+        if (!is_string($wsEndpoint) || '' === trim($wsEndpoint)) {
+            $wsEndpoint = $_ENV['PW_WS_ENDPOINT'] ?? $_SERVER['PW_WS_ENDPOINT'] ?? getenv('PW_WS_ENDPOINT');
+        }
+
+        if (is_string($wsEndpoint) && '' !== trim($wsEndpoint)) {
+            $launchOptions['wsEndpoint'] = trim($wsEndpoint);
+        }
 
         return new self($browserType, $headless, $launchOptions);
     }
@@ -241,6 +249,11 @@ class BrowserRegistry implements BrowserSessionInterface
 
         if (is_array($args) && [] !== $args) {
             $builder->withArgs(array_values(array_filter($args, 'is_string')));
+        }
+
+        $wsEndpoint = $this->launchOptions['wsEndpoint'] ?? null;
+        if (is_string($wsEndpoint) && '' !== $wsEndpoint) {
+            return $builder->connect($wsEndpoint);
         }
 
         return $builder->launch();
