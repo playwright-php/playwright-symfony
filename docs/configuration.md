@@ -115,5 +115,6 @@ Configuration can be overridden at runtime using environment variables:
 
 - `PLAYWRIGHT_BROWSER`: `chromium`, `firefox`, or `webkit`.
 - `PLAYWRIGHT_HEADLESS`: `true` or `false`.
+- `PLAYWRIGHT_REUSE_BROWSER`: `false`, `0`, `off` or `no` stops the browser after each test class. Any other value keeps the default: one browser serves the whole PHP process and stops on PHP shutdown. Contexts are closed after every test either way.
 - `PLAYWRIGHT_CHANNEL`: Chromium channel, such as `chrome` or `msedge`, for `PlaywrightTestCase` and `BrowserRegistry::fromEnvironment()`. Falls back to `PW_CHANNEL` when unset. The selected browser must be installed separately.
 - `PLAYWRIGHT_BASE_URL`: Override the default base URL.

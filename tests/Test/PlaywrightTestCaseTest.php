@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Test;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Playwright\Network\Request;
@@ -56,8 +57,21 @@ class PlaywrightTestCaseTest extends TestCase
     private FakePlaywrightKernelClient $client;
     private FakeBrowserRegistry $browser;
 
+    /**
+     * @var array{env: string|null, server: string|null, process: string|false}
+     */
+    private array $reuseBrowser;
+
     protected function setUp(): void
     {
+        $this->reuseBrowser = [
+            'env' => $_ENV['PLAYWRIGHT_REUSE_BROWSER'] ?? null,
+            'server' => $_SERVER['PLAYWRIGHT_REUSE_BROWSER'] ?? null,
+            'process' => getenv('PLAYWRIGHT_REUSE_BROWSER'),
+        ];
+        unset($_ENV['PLAYWRIGHT_REUSE_BROWSER'], $_SERVER['PLAYWRIGHT_REUSE_BROWSER']);
+        putenv('PLAYWRIGHT_REUSE_BROWSER');
+
         $this->testCase = new ConcretePlaywrightTestCase('aa');
         $this->testCase->setInterceptedHosts(['localhost', '127.0.0.1', 'testapp.local']);
 
@@ -70,7 +84,20 @@ class PlaywrightTestCaseTest extends TestCase
 
     protected function tearDown(): void
     {
+        unset($_ENV['PLAYWRIGHT_REUSE_BROWSER'], $_SERVER['PLAYWRIGHT_REUSE_BROWSER']);
+        putenv('PLAYWRIGHT_REUSE_BROWSER');
         TestablePlaywrightTestCase::tearDownAfterClass();
+        TestablePlaywrightTestCase::stopBrowser();
+
+        if (null !== $this->reuseBrowser['env']) {
+            $_ENV['PLAYWRIGHT_REUSE_BROWSER'] = $this->reuseBrowser['env'];
+        }
+        if (null !== $this->reuseBrowser['server']) {
+            $_SERVER['PLAYWRIGHT_REUSE_BROWSER'] = $this->reuseBrowser['server'];
+        }
+        if (false !== $this->reuseBrowser['process']) {
+            putenv('PLAYWRIGHT_REUSE_BROWSER='.$this->reuseBrowser['process']);
+        }
     }
 
     public function testExtendsWebTestCaseAndExposesSymfonyWebAssertions(): void
@@ -421,13 +448,95 @@ class PlaywrightTestCaseTest extends TestCase
         $this->assertSame(1, $this->browser->resetCount);
     }
 
-    public function testTearDownAfterClassStopsBrowser(): void
+    #[DataProvider('valuesThatReuseTheBrowser')]
+    public function testTearDownAfterClassKeepsTheBrowser(?string $reuse): void
     {
+        if (null !== $reuse) {
+            $_ENV['PLAYWRIGHT_REUSE_BROWSER'] = $reuse;
+        }
+        TestablePlaywrightTestCase::setSharedBrowser($this->browser);
+
+        TestablePlaywrightTestCase::tearDownAfterClass();
+
+        $this->assertFalse($this->browser->stopped, 'Browser should outlive its test class');
+        $this->assertSame(1, $this->browser->resetCount);
+    }
+
+    /**
+     * @return iterable<string, array{string|null}>
+     */
+    public static function valuesThatReuseTheBrowser(): iterable
+    {
+        yield 'unset' => [null];
+        yield 'empty' => [''];
+        yield 'true' => ['true'];
+        yield 'one' => ['1'];
+        yield 'on' => ['on'];
+        yield 'not a boolean' => ['sometimes'];
+    }
+
+    #[DataProvider('valuesThatStopTheBrowserAfterEachClass')]
+    public function testTearDownAfterClassStopsTheBrowserWhenReuseIsOff(string $reuse): void
+    {
+        $_ENV['PLAYWRIGHT_REUSE_BROWSER'] = $reuse;
         TestablePlaywrightTestCase::setSharedBrowser($this->browser);
 
         TestablePlaywrightTestCase::tearDownAfterClass();
 
         $this->assertTrue($this->browser->stopped, 'Browser should be stopped during tearDownAfterClass');
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function valuesThatStopTheBrowserAfterEachClass(): iterable
+    {
+        yield 'false' => ['false'];
+        yield 'zero' => ['0'];
+        yield 'off' => ['off'];
+        yield 'no' => ['no'];
+    }
+
+    #[DataProvider('reuseVariableSources')]
+    public function testTearDownAfterClassReadsTheReuseVariableFromEverySource(string $source): void
+    {
+        match ($source) {
+            'env' => $_ENV['PLAYWRIGHT_REUSE_BROWSER'] = 'false',
+            'server' => $_SERVER['PLAYWRIGHT_REUSE_BROWSER'] = 'false',
+            'process' => putenv('PLAYWRIGHT_REUSE_BROWSER=false'),
+        };
+        TestablePlaywrightTestCase::setSharedBrowser($this->browser);
+
+        TestablePlaywrightTestCase::tearDownAfterClass();
+
+        $this->assertTrue($this->browser->stopped, 'Browser should be stopped during tearDownAfterClass');
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function reuseVariableSources(): iterable
+    {
+        yield 'ENV' => ['env'];
+        yield 'SERVER' => ['server'];
+        yield 'process' => ['process'];
+    }
+
+    public function testGetPlaywrightClientReusesTheBrowserAfterTearDownAfterClass(): void
+    {
+        $this->lifecycleTestCase->setTestClient(null);
+
+        $this->lifecycleTestCase->callSetUp();
+        TestablePlaywrightTestCase::publicGetPlaywrightClient();
+        $this->lifecycleTestCase->callTearDown();
+        TestablePlaywrightTestCase::tearDownAfterClass();
+
+        $this->lifecycleTestCase->callSetUp();
+        TestablePlaywrightTestCase::publicGetPlaywrightClient();
+        $this->lifecycleTestCase->callTearDown();
+
+        $this->assertFalse($this->browser->stopped);
+        $this->assertSame(2, $this->browser->sessionCount, 'Both classes should get their session from the same browser');
     }
 
     public function testClientBrowserAndBaseUrlPropertiesAreRemoved(): void
