@@ -11,7 +11,7 @@ requests to a web server, Playwright intercepts all outgoing requests and routes
 ### High-Level Component Map
 
 1. **Test Layer (`PlaywrightTestCase`)**: Orchestrates the lifecycle. Manages a **Shared Browser** process that is
-   launched once per class.
+   launched once per PHP process, or once per class with `PLAYWRIGHT_REUSE_BROWSER=false`.
 2. **Client Layer (`PlaywrightKernelClient`)**: The central hub. It implements the `BrowserKit` API and coordinates the
    interception.
 3. **Bridge Utilities**:
@@ -71,8 +71,8 @@ The bundle optimizes the DI container for testing:
 
 ### Shared Browser Process
 
-Launching a browser process takes ~1000ms. The process starts lazily and is shared across tests in the same class,
-while isolated contexts are created on demand and closed after each test.
+Launching a browser process takes ~1000ms. The process starts lazily and is shared across every test of the PHP
+process, while isolated contexts are created on demand and closed after each test.
 
 ### In-Process Execution
 

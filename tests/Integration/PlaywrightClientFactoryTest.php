@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace Playwright\Symfony\Tests\Integration;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Playwright\Symfony\Client\BrowserRegistry;
 use Playwright\Symfony\Test\PlaywrightTestCase;
 use Playwright\Symfony\Tests\Fixtures\App\TestKernel;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,10 +33,17 @@ final class PlaywrightClientFactoryTest extends PlaywrightTestCase
         return new TestKernel('test', false);
     }
 
-    public function testSetUpLeavesKernelAndBrowserDormant(): void
+    public function testSetUpBootsNoKernelAndOpensNoSession(): void
     {
         $this->assertNull(self::$kernel);
-        $this->assertNull(self::$sharedBrowser);
+        $this->assertNull(self::$playwrightClient);
+
+        // an earlier test or an earlier class may have left the shared browser running: setUp()
+        // itself must not open a session on it
+        if (null !== self::$sharedBrowser) {
+            $sessions = new \ReflectionProperty(BrowserRegistry::class, 'sessions');
+            $this->assertSame([], $sessions->getValue(self::$sharedBrowser));
+        }
     }
 
     public function testCreatedClientsHaveIsolatedCookiesAndStorage(): void

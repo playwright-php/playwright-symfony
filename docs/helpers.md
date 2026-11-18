@@ -672,7 +672,8 @@ public function testWithFixtures(): void
 ### Lifecycle Considerations
 
 **Important:** If you override `setUp()` or `tearDown()`, always call the parent methods. The browser starts lazily,
-its contexts are closed after each test, and its process is stopped in `tearDownAfterClass()`.
+its contexts are closed after each test, and its process is stopped on PHP shutdown, or in `tearDownAfterClass()` with
+`PLAYWRIGHT_REUSE_BROWSER=false`.
 
 ```php
 protected function setUp(): void

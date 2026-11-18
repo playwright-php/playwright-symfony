@@ -63,5 +63,5 @@ test:
 ## Performance Tip: Parallelization
 
 If you run tests in parallel, ensure your `PLAYWRIGHT_BASE_URL` or database configuration accounts for concurrent
-access. Since Playwright Symfony reuses the browser process within a single class, standard PHPUnit parallelization (
-using `brianium/paratest`) works out of the box.
+access. Playwright Symfony keeps one browser process per PHP process, so each worker has its own browser and standard
+PHPUnit parallelization (using `brianium/paratest`) works out of the box.

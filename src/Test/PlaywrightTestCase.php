@@ -46,7 +46,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  * - Reuses one browser process for isolated client contexts
  *
  * Key features:
- * - Browser sharing: One browser instance per test class (performance optimization)
+ * - Browser sharing: One browser per PHP process, or per test class with PLAYWRIGHT_REUSE_BROWSER=false
  * - Context isolation: Client contexts are closed after each test
  * - Request interception: All requests to localhost/127.0.0.1 routed through kernel
  * - Asset optimization: Static assets served directly without kernel overhead
@@ -63,7 +63,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  *
  * Configuration:
  * - Reads from bundle parameters: playwright.intercepted_hosts, playwright.base_url
- * - Reads from environment: PLAYWRIGHT_BROWSER, PLAYWRIGHT_HEADLESS
+ * - Reads from environment: PLAYWRIGHT_BROWSER, PLAYWRIGHT_HEADLESS, PLAYWRIGHT_REUSE_BROWSER
  * - Can configure via kernel container parameters
  *
  * Common methods:
@@ -110,6 +110,7 @@ abstract class PlaywrightTestCase extends WebTestCase
     protected static ?BrowserRegistry $sharedBrowser = null;
     protected static ?PlaywrightKernelClient $playwrightClient = null;
     private static ?self $hookReceiver = null;
+    private static bool $shutdownRegistered = false;
 
     protected function setUp(): void
     {
@@ -129,9 +130,10 @@ abstract class PlaywrightTestCase extends WebTestCase
 
     public static function tearDownAfterClass(): void
     {
-        if (null !== self::$sharedBrowser) {
-            self::$sharedBrowser->stop();
-            self::$sharedBrowser = null;
+        if (self::reusesBrowser()) {
+            self::$sharedBrowser?->resetSessions();
+        } else {
+            self::stopSharedBrowser();
         }
         self::$playwrightClient = null;
         self::$hookReceiver = null;
@@ -164,15 +166,54 @@ abstract class PlaywrightTestCase extends WebTestCase
         return self::createKernelClient($browser->createSession());
     }
 
+    /**
+     * Stops the shared browser and its Playwright process.
+     */
+    private static function stopSharedBrowser(): void
+    {
+        self::$sharedBrowser?->stop();
+        self::$sharedBrowser = null;
+    }
+
+    /**
+     * One browser serves the whole PHP process unless PLAYWRIGHT_REUSE_BROWSER is false, 0, off or no.
+     */
+    private static function reusesBrowser(): bool
+    {
+        $reuse = $_ENV['PLAYWRIGHT_REUSE_BROWSER'] ?? $_SERVER['PLAYWRIGHT_REUSE_BROWSER'] ?? getenv('PLAYWRIGHT_REUSE_BROWSER');
+
+        if (!is_string($reuse) || '' === $reuse) {
+            return true;
+        }
+
+        return false !== filter_var($reuse, \FILTER_VALIDATE_BOOL, \FILTER_NULL_ON_FAILURE);
+    }
+
     private static function getSharedBrowser(): BrowserRegistry
     {
         $requestedBrowser = BrowserRegistry::fromEnvironment();
         if (null !== self::$sharedBrowser && !self::$sharedBrowser->equals($requestedBrowser)) {
-            self::$sharedBrowser->stop();
-            self::$sharedBrowser = null;
+            self::stopSharedBrowser();
         }
 
+        self::stopSharedBrowserOnShutdown();
+
         return self::$sharedBrowser ??= $requestedBrowser;
+    }
+
+    /**
+     * A reused browser outlives tearDownAfterClass(): PHP shutdown is the last point to stop it.
+     * Registered once per PHP process, whatever the reuse mode: stopping a browser that is
+     * already stopped does nothing.
+     */
+    private static function stopSharedBrowserOnShutdown(): void
+    {
+        if (self::$shutdownRegistered) {
+            return;
+        }
+
+        register_shutdown_function(self::stopSharedBrowser(...));
+        self::$shutdownRegistered = true;
     }
 
     private static function createKernelClient(BrowserSessionInterface $session): PlaywrightKernelClient

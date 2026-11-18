@@ -44,6 +44,12 @@ class TestablePlaywrightTestCase extends PlaywrightTestCase
         self::$sharedBrowser = $browser;
     }
 
+    public static function stopBrowser(): void
+    {
+        self::$sharedBrowser?->stop();
+        self::$sharedBrowser = null;
+    }
+
     public function callTearDown(): void
     {
         $this->tearDown();

@@ -16,6 +16,7 @@ namespace Playwright\Symfony\Client;
 
 use Playwright\Browser\BrowserContextInterface;
 use Playwright\Browser\BrowserInterface;
+use Playwright\Exception\PlaywrightExceptionInterface;
 use Playwright\Page\PageInterface;
 use Playwright\PlaywrightClient;
 use Playwright\PlaywrightFactory;
@@ -42,7 +43,7 @@ use Playwright\PlaywrightFactory;
  *
  * Usage:
  * - Typically instantiated via BrowserRegistry::fromEnvironment() in PlaywrightTestCase
- * - Browser instance is shared across tests in the same test class (static $sharedBrowser)
+ * - Browser instance is shared across the tests of the PHP process, or of a class with PLAYWRIGHT_REUSE_BROWSER=false
  * - Sessions are closed between tests to ensure test isolation
  *
  * This is NOT a browser itself - it's a registry/manager that creates and holds browser instances.
@@ -289,11 +290,41 @@ class BrowserRegistry implements BrowserSessionInterface
      */
     public function createSession(): BrowserSessionInterface
     {
-        $this->browser ??= $this->launchBrowser();
-        $session = new BrowserSession($this->browser->newContext($this->contextOptions()));
+        $session = new BrowserSession($this->newContext());
         $this->sessions[spl_object_id($session)] = $session;
 
         return $session;
+    }
+
+    /**
+     * Opens a context, on a new browser when the current one fails to open it.
+     *
+     * The browser is only replaced while no session is open, so a failure never closes
+     * sessions that are still in use.
+     */
+    private function newContext(): BrowserContextInterface
+    {
+        $replaceable = null !== $this->browser && [] === $this->sessions;
+        $this->browser ??= $this->launchBrowser();
+
+        try {
+            return $this->browser->newContext($this->contextOptions());
+        } catch (PlaywrightExceptionInterface|\ErrorException $failure) {
+            // ErrorException: the base package raises a PHP warning before its own exception,
+            // and an error handler that throws, such as the one of a Symfony debug kernel,
+            // gets there first. An exception raised by the application is not caught.
+            if (!$replaceable) {
+                throw $failure;
+            }
+        }
+
+        // the failure is the only signal that the browser crashed or that its Playwright process
+        // is gone, as the base package still reports a crashed browser as connected: start over
+        // once, and let a second failure through
+        $this->stop();
+        $this->browser = $this->launchBrowser();
+
+        return $this->browser->newContext($this->contextOptions());
     }
 
     /**
