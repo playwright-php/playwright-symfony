@@ -12,6 +12,7 @@ Before 1.0, breaking changes are released in minor versions.
 - Add auto-waiting `$this->expect()` assertions to `PlaywrightTestCase`, with PHPUnit assertion counting and tracing.
 - Reuse the same browser for every test class of a PHP process in `PlaywrightTestCase`, and reset the contexts after each test. The browser stops on PHP shutdown. Disable with `PLAYWRIGHT_REUSE_BROWSER=false` to get one browser per test class (#68).
 - Relaunch a browser that crashed: `BrowserRegistry::createSession()` starts a new browser once when the current one fails to open a context while no session is open (#68).
+- `visit()` accepts an absolute URL, so a test can start on any of the `intercepted_hosts`. A URL on another host throws an `InvalidArgumentException` (#72).
 
 ### Changed
 
