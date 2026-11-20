@@ -18,7 +18,22 @@ Use the `visit()` method to navigate to your application.
 $this->visit('/my-route');
 ```
 
-By default, this is prefixed with the `base_url` configuration.
+A path is prefixed with the `base_url` configuration. An absolute URL is visited as it is, so a test can start on any of
+the `intercepted_hosts`:
+
+```yaml
+# config/packages/test/playwright.yaml
+playwright:
+    base_url: 'http://shop.example.test'
+    intercepted_hosts: ['shop.example.test', 'admin.example.test']
+```
+
+```php
+$this->visit('/checkout');                        // http://shop.example.test/checkout
+$this->visit('http://admin.example.test/orders'); // another intercepted host
+```
+
+An absolute URL on a host that is not intercepted throws an `InvalidArgumentException` instead of reaching the network.
 
 ## Interacting with the Page
 

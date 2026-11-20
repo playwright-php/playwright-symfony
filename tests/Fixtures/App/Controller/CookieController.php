@@ -28,6 +28,10 @@ final class CookieController
             $response->headers->setCookie(Cookie::create('foreign', 'value', domain: 'foreign.example'));
         }
 
+        if ($request->query->getBoolean('set')) {
+            $response->headers->setCookie(Cookie::create('set_by', $request->getHost()));
+        }
+
         return $response;
     }
 }
