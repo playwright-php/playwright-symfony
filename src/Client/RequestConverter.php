@@ -166,7 +166,8 @@ class RequestConverter
                 $filename = null !== $encoded ? rawurldecode($encoded) : $filename;
             }
 
-            $payload = rtrim($partBody, "\r\n");
+            // The CRLF before the next delimiter belongs to the delimiter (RFC 2046, 5.1.1)
+            $payload = str_ends_with($partBody, "\r\n") ? substr($partBody, 0, -2) : $partBody;
 
             if (null !== $filename && '' !== $filename && is_string($filename)) {
                 $this->createUploadedFile($fieldName, $filename, $payload, $headers, $files);
