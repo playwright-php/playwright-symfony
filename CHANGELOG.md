@@ -25,6 +25,7 @@ Before 1.0, breaking changes are released in minor versions.
 
 - `restart()` clears the cookies of the browser context (#52).
 - Cookies read from the jar return their decoded value from `getValue()`, as BrowserKit does; `getRawValue()` keeps the encoded form (#52).
+- Multipart parsing keeps the trailing newlines of file and field values (#71).
 
 ## [0.12.0] - 2026-11-06
 

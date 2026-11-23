@@ -125,7 +125,66 @@ class RequestConverterTest extends TestCase
         self::assertInstanceOf(UploadedFile::class, $file);
         self::assertSame('café.txt', $file->getClientOriginalName());
         self::assertSame('text/plain', $file->getClientMimeType());
-        self::assertSame(rtrim($binary, "\r\n"), file_get_contents($file->getRealPath()));
+        self::assertSame($binary, file_get_contents($file->getRealPath()));
+    }
+
+    #[DataProvider('fileContents')]
+    public function testMultipartKeepsFileContentIntact(string $content): void
+    {
+        $boundary = 'Boundary123';
+        $body = "--$boundary\r\n".
+            "Content-Disposition: form-data; name=\"file\"; filename=\"data.bin\"\r\n".
+            "Content-Type: application/octet-stream\r\n\r\n$content\r\n".
+            "--$boundary--\r\n";
+
+        $converter = new RequestConverter();
+        $request = new MockRequest(
+            url: 'http://localhost/upload',
+            method: 'POST',
+            headers: ['content-type' => 'multipart/form-data; boundary='.$boundary],
+            postData: $body,
+        );
+
+        $symfony = $converter->convertToSymfonyRequest($request);
+
+        $file = $symfony->files->get('file');
+        self::assertInstanceOf(UploadedFile::class, $file);
+        self::assertSame(\strlen($content), $file->getSize());
+        self::assertSame($content, file_get_contents($file->getRealPath()));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function fileContents(): iterable
+    {
+        yield 'text ending in a newline' => ["hello upload\n"];
+        yield 'text ending in blank lines' => ["hello upload\r\n\r\n"];
+        yield 'binary ending in CR and LF bytes' => ["\x89PNG\x0D\x0A"];
+        yield 'text without trailing newline' => ['hello upload'];
+    }
+
+    public function testMultipartKeepsTrailingNewlinesOfFieldValues(): void
+    {
+        $boundary = 'Boundary123';
+        $body = "--$boundary\r\n".
+            "Content-Disposition: form-data; name=\"message\"\r\n\r\nfirst line\nsecond line\n\r\n".
+            "--$boundary\r\n".
+            "Content-Disposition: form-data; name=\"title\"\r\n\r\nHello\r\n".
+            "--$boundary--\r\n";
+
+        $converter = new RequestConverter();
+        $request = new MockRequest(
+            url: 'http://localhost/submit',
+            method: 'POST',
+            headers: ['content-type' => 'multipart/form-data; boundary='.$boundary],
+            postData: $body,
+        );
+
+        $symfony = $converter->convertToSymfonyRequest($request);
+
+        self::assertSame("first line\nsecond line\n", $symfony->request->get('message'));
+        self::assertSame('Hello', $symfony->request->get('title'));
     }
 
     public function testMultipartAppendsRepeatedArrayFields(): void
