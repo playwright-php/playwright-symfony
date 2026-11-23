@@ -19,6 +19,7 @@ use Playwright\API\APIResponseInterface;
 use Playwright\Browser\BrowserContextInterface;
 use Playwright\Clock\ClockInterface;
 use Playwright\Clock\NullClock;
+use Playwright\Download\DownloadInterface;
 use Playwright\Frame\FrameInterface;
 use Playwright\Frame\FrameLocatorInterface;
 use Playwright\Input\KeyboardInterface;
@@ -328,6 +329,15 @@ final class DummyPage implements PageInterface
     public function waitForPopup(callable $action, WaitForPopupOptions|array $options = []): self
     {
         return $this;
+    }
+
+    /**
+     * $options stays untyped so the fake also loads with playwright-php/playwright 1.6,
+     * which has no WaitForDownloadOptions.
+     */
+    public function waitForDownload(callable $action, mixed $options = []): DownloadInterface
+    {
+        throw new \BadMethodCallException('Not needed in DummyPage');
     }
 
     public function waitForResponse($url, WaitForResponseOptions|array $options = []): ResponseInterface
