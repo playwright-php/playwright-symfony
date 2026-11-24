@@ -25,9 +25,12 @@ jobs:
         #
         # lib-floor:  the lowest playwright-php/playwright the constraint allows.
         # lib-latest: the highest it allows today.
+        # lib-dev:    the library's main branch, so a change there that breaks
+        #             the bundle (a method added to an interface the test fakes
+        #             implement, for one) shows before it is tagged.
         # js-latest:  newest Playwright JS published, whatever the bridge asked
         #             for, as a canary on the upstream release itself.
-        leg: ['lib-floor', 'lib-latest', 'js-latest']
+        leg: ['lib-floor', 'lib-latest', 'lib-dev', 'js-latest']
       fail-fast: false
     steps:
       - name: "Git: checkout"
@@ -53,6 +56,10 @@ jobs:
         run: |
           constraint=$(php -r 'echo json_decode(file_get_contents("composer.json"), true)["require"]["playwright-php/playwright"];')
           echo "Declared constraint: $constraint"
+          if [ "$LEG" = "lib-dev" ]; then
+            echo "with=playwright-php/playwright:1.x-dev" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "$LEG" != "lib-floor" ]; then
             echo "with=" >> "$GITHUB_OUTPUT"
             exit 0
@@ -111,6 +118,9 @@ jobs:
               want="v${WITH#*:}"
               [ "$LIBRARY" = "$want" ] || { echo "::error::expected $want, composer installed $LIBRARY"; exit 1; }
               ;;
+            lib-dev)
+              [ "$LIBRARY" = "1.x-dev" ] || { echo "::error::expected 1.x-dev, composer installed $LIBRARY"; exit 1; }
+              ;;
             js-latest)
               want=$(npm view playwright version)
               [ "$JS" = "$want" ] || { echo "::error::expected Playwright JS $want, bridge has $JS"; exit 1; }
@@ -134,6 +144,11 @@ jobs:
             echo "Attempt $attempt failed or timed out after 5 minutes, retrying."
           done
           exit 1
+
+      # The fakes under tests/ implement the library's interfaces; only the unit
+      # suite loads most of them.
+      - name: "PHPUnit: unit"
+        run: composer test-unit
 
       - name: "PHPUnit: integration"
         run: composer test-integration
