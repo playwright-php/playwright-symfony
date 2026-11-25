@@ -36,7 +36,14 @@ class BrowserRegistryTest extends TestCase
 
     protected function setUp(): void
     {
-        foreach (['PLAYWRIGHT_BROWSER', 'PLAYWRIGHT_HEADLESS', 'PLAYWRIGHT_CHANNEL', 'PW_CHANNEL'] as $name) {
+        foreach ([
+            'PLAYWRIGHT_BROWSER',
+            'PLAYWRIGHT_HEADLESS',
+            'PLAYWRIGHT_CHANNEL',
+            'PW_CHANNEL',
+            'PLAYWRIGHT_WS_ENDPOINT',
+            'PW_WS_ENDPOINT',
+        ] as $name) {
             $this->originalEnvironment[$name] = [getenv($name), $_ENV[$name] ?? null, $_SERVER[$name] ?? null];
             putenv($name);
             unset($_ENV[$name], $_SERVER[$name]);
@@ -135,6 +142,53 @@ class BrowserRegistryTest extends TestCase
         $second = BrowserRegistry::fromEnvironment();
 
         $this->assertFalse($first->equals($second));
+    }
+
+    #[DataProvider('endpointEnvironmentSources')]
+    public function testFromEnvironmentRespectsWebSocketEndpoint(string $name, string $source): void
+    {
+        match ($source) {
+            'env' => $_ENV[$name] = 'ws://localhost:3000',
+            'server' => $_SERVER[$name] = 'ws://localhost:3000',
+            'process' => putenv($name.'=ws://localhost:3000'),
+        };
+
+        $browser = BrowserRegistry::fromEnvironment();
+
+        $this->assertTrue($browser->equals(new BrowserRegistry(launchOptions: ['wsEndpoint' => 'ws://localhost:3000'])));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function endpointEnvironmentSources(): iterable
+    {
+        yield 'PLAYWRIGHT_WS_ENDPOINT in ENV' => ['PLAYWRIGHT_WS_ENDPOINT', 'env'];
+        yield 'PLAYWRIGHT_WS_ENDPOINT in SERVER' => ['PLAYWRIGHT_WS_ENDPOINT', 'server'];
+        yield 'PLAYWRIGHT_WS_ENDPOINT in process' => ['PLAYWRIGHT_WS_ENDPOINT', 'process'];
+        yield 'PW_WS_ENDPOINT in ENV' => ['PW_WS_ENDPOINT', 'env'];
+        yield 'PW_WS_ENDPOINT in SERVER' => ['PW_WS_ENDPOINT', 'server'];
+        yield 'PW_WS_ENDPOINT in process' => ['PW_WS_ENDPOINT', 'process'];
+    }
+
+    public function testPlaywrightWebSocketEndpointTakesPrecedenceOverLibraryEndpoint(): void
+    {
+        putenv('PLAYWRIGHT_WS_ENDPOINT=ws://registry:3000');
+        $_ENV['PW_WS_ENDPOINT'] = 'ws://library:3000';
+
+        $browser = BrowserRegistry::fromEnvironment();
+
+        $this->assertTrue($browser->equals(new BrowserRegistry(launchOptions: ['wsEndpoint' => 'ws://registry:3000'])));
+    }
+
+    public function testEmptyPlaywrightWebSocketEndpointFallsBackToLibraryEndpoint(): void
+    {
+        $_ENV['PLAYWRIGHT_WS_ENDPOINT'] = '';
+        putenv('PW_WS_ENDPOINT=ws://library:3000');
+
+        $browser = BrowserRegistry::fromEnvironment();
+
+        $this->assertTrue($browser->equals(new BrowserRegistry(launchOptions: ['wsEndpoint' => 'ws://library:3000'])));
     }
 
     public function testGetPageReturnsExistingPageWithoutStarting(): void

@@ -94,6 +94,10 @@ final class Configuration implements ConfigurationInterface
                                     ->scalarNode('bypass')->defaultNull()->info('Comma-separated hosts to bypass')->end()
                                 ->end()
                             ->end()
+                            ->scalarNode('ws_endpoint')
+                                ->defaultNull()
+                                ->info('WebSocket endpoint for a remote browser connection')
+                            ->end()
                         ->end()
                     ->end()
                     ->defaultValue([

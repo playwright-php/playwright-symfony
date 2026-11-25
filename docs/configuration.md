@@ -74,6 +74,7 @@ Defines named browser configurations.
 | `node_path`      | Override the global `node_path` for this browser                | `null`     |
 | `min_node_version` | Minimum Node.js version required to launch the server         | `20.0.0`   |
 | `channel`        | Browser distribution channel, e.g. `chrome-beta` or `msedge`    | `null`     |
+| `ws_endpoint`    | WebSocket endpoint for a remote browser, e.g. `ws://host:3000` | `null`     |
 | `screenshot_dir` | Default directory where page screenshots are saved              | `null`     |
 | `downloads_dir`  | Directory where downloads are stored                            | `null`     |
 | `videos_dir`     | Directory where context videos are recorded                     | `null`     |
@@ -84,7 +85,7 @@ Defines named browser configurations.
 `snapshots` (`false`). `proxy` keys: `server` (required), `username`, `password`,
 `bypass`.
 
-These options require `playwright-php/playwright:^1.3`.
+These options require `playwright-php/playwright:^1.6`.
 
 ### `assets`
 
@@ -117,4 +118,5 @@ Configuration can be overridden at runtime using environment variables:
 - `PLAYWRIGHT_HEADLESS`: `true` or `false`.
 - `PLAYWRIGHT_REUSE_BROWSER`: `false`, `0`, `off` or `no` stops the browser after each test class. Any other value keeps the default: one browser serves the whole PHP process and stops on PHP shutdown. Contexts are closed after every test either way.
 - `PLAYWRIGHT_CHANNEL`: Chromium channel, such as `chrome` or `msedge`, for `PlaywrightTestCase` and `BrowserRegistry::fromEnvironment()`. Falls back to `PW_CHANNEL` when unset. The selected browser must be installed separately.
+- `PLAYWRIGHT_WS_ENDPOINT`: WebSocket endpoint for remote browsers in `PlaywrightTestCase` and `BrowserRegistry::fromEnvironment()`. The registry prefers this variable and falls back to `PW_WS_ENDPOINT` when unset or empty; the Playwright library's `PlaywrightConfigBuilder::fromEnv()` gives `PW_WS_ENDPOINT` precedence.
 - `PLAYWRIGHT_BASE_URL`: Override the default base URL.

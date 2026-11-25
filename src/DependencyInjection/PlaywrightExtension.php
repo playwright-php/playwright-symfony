@@ -150,6 +150,8 @@ final class PlaywrightExtension extends Extension
         $browserEnum = $browserMap[$browserTypeKey] ?? BrowserType::CHROMIUM;
 
         $tracing = is_array($cfg['tracing'] ?? null) ? $cfg['tracing'] : [];
+        $wsEndpoint = $cfg['ws_endpoint'] ?? null;
+        $wsEndpoint = is_string($wsEndpoint) && '' !== trim($wsEndpoint) ? trim($wsEndpoint) : null;
 
         return [
             '$nodePath' => $cfg['node_path'] ?? $globalNodePath,
@@ -169,6 +171,7 @@ final class PlaywrightExtension extends Extension
             '$traceScreenshots' => $tracing['screenshots'] ?? false,
             '$traceSnapshots' => $tracing['snapshots'] ?? false,
             '$proxy' => $this->mapProxy($cfg['proxy'] ?? null),
+            '$wsEndpoint' => $wsEndpoint,
         ];
     }
 
@@ -206,7 +209,8 @@ final class PlaywrightExtension extends Extension
      *
      * The whole PlaywrightConfig flows into the library: node_path, env and
      * timeout_ms reach the Node.js server transport, headless, slowmo_ms and
-     * args reach the browser launch, screenshot_dir is used at runtime.
+     * args reach the browser launch, wsEndpoint selects a remote browser,
+     * screenshot_dir is used at runtime.
      */
     public static function createBrowserContext(PlaywrightConfig $config): BrowserContextInterface
     {

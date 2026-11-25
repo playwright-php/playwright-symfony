@@ -51,6 +51,7 @@ final class ConfigurationTest extends TestCase
         $this->assertEquals(0, $defaultBrowser['slowmo_ms']);
         $this->assertEquals([], $defaultBrowser['args']);
         $this->assertEquals([], $defaultBrowser['env']);
+        $this->assertNull($defaultBrowser['ws_endpoint']);
     }
 
     public function testCustomConfiguration(): void
@@ -155,6 +156,7 @@ final class ConfigurationTest extends TestCase
     {
         $config = $this->processor->processConfiguration($this->configuration, [
             ['browsers' => ['custom' => [
+                'ws_endpoint' => 'ws://remote-browser:3000',
                 'channel' => 'chrome-beta',
                 'min_node_version' => '22.0.0',
                 'downloads_dir' => '/tmp/dl',
@@ -165,6 +167,7 @@ final class ConfigurationTest extends TestCase
         ]);
 
         $browser = $config['browsers']['custom'];
+        $this->assertSame('ws://remote-browser:3000', $browser['ws_endpoint']);
         $this->assertSame('chrome-beta', $browser['channel']);
         $this->assertSame('22.0.0', $browser['min_node_version']);
         $this->assertSame('/tmp/dl', $browser['downloads_dir']);
