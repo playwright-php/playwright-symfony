@@ -110,6 +110,48 @@ class PlaywrightKernelClientTest extends TestCase
         self::assertSame('https://example.test', $client->getBaseUrl());
     }
 
+    public function testVisitResolvesAProtocolRelativeUrlWithTheSchemeOfTheBaseUrl(): void
+    {
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse('ok');
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+            interceptedHosts: ['admin.example.test'],
+            baseUrl: 'https://example.test',
+        );
+
+        $client->visit('//admin.example.test/users');
+
+        self::assertSame('https://admin.example.test/users', $this->page->lastGoto);
+    }
+
+    public function testVisitRefusesAHostThatIsNotIntercepted(): void
+    {
+        $client = new PlaywrightKernelClient(
+            $this->browser,
+            new class implements HttpKernelInterface {
+                public function handle(SymfonyRequest $request, int $type = self::MAIN_REQUEST, bool $catch = true): SymfonyResponse
+                {
+                    return new SymfonyResponse('ok');
+                }
+            },
+            new RequestConverter(),
+            new ResponseConverter(),
+            interceptedHosts: ['localhost'],
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Cannot visit "https://outside.example.test/": its host is not one of the intercepted hosts.');
+
+        $client->visit('https://outside.example.test/');
+    }
+
     public function testInterceptedRequestHandledThroughKernel(): void
     {
         $seen = (object) [

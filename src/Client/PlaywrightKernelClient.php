@@ -218,11 +218,22 @@ class PlaywrightKernelClient extends AbstractBrowser
     }
 
     /**
-     * Navigates the browser page to a path relative to the configured base URL.
+     * Navigates the browser page to a path relative to the configured base URL, or to an absolute URL.
      */
     public function visit(string $path): PageInterface
     {
         $url = $this->getBaseUrl().$path;
+        $parts = parse_url($path);
+
+        // an absolute URL keeps its host, which must be one the kernel serves: any other would reach the network
+        if (isset($parts['host'])) {
+            $url = UriResolver::resolve($path, $this->getBaseUrl());
+
+            if (!$this->shouldInterceptRequest($parts)) {
+                throw new \InvalidArgumentException(sprintf('Cannot visit "%s": its host is not one of the intercepted hosts.', $path));
+            }
+        }
+
         $this->log('debug', 'Navigating with Playwright', ['url' => $url]);
         $page = $this->session->getPage();
 

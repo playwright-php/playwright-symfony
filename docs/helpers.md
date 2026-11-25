@@ -11,7 +11,7 @@ Navigate to a path and return the Playwright Page instance.
 
 **Parameters:**
 
-- `$path` - Path relative to the configured `base_url`
+- `$path` - Path relative to the configured `base_url`, or an absolute URL on one of the `intercepted_hosts`
 
 **Returns:** `PageInterface` - The Playwright Page object
 
